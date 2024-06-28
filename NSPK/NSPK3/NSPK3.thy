@@ -22,28 +22,6 @@ The protocol runs as follows:
 \<close>
 
 subsection \<open> General definitions \<close>
-definition "AllAgents = ((enum_class.enum:: (dagent) list))"
-definition "AllAgentMsgs = MAg ` (set AllAgents)"
-definition "AllAgentsLst = map MAg AllAgents"
-
-definition "isPK k = (\<exists>x. PK x = k)"
-definition "AllPKs = (enum_class.enum:: (dpkey) list)"
-definition "AllPKMsgs = MKp ` (set AllPKs)"
-definition "AllPKsLst = map MKp AllPKs"
-value "AllPKs"
-value "AllPKsLst"
-
-definition "isSK k = (\<exists>x. SK x = k)"
-definition "AllSKs = (enum_class.enum:: (dskey) list)"
-definition "AllSKMsgs = MKs ` (set AllSKs)"
-definition "AllSKsLst = map MKs AllSKs"
-value "AllSKsData"
-
-definition "AllNonces = (enum_class.enum:: (dnonce) list)"
-definition "AllNonceMsgs = MNon ` (set AllNonces)"
-definition "AllNoncesLst = map MNon AllNonces"
-value "AllNoncesData"
-
 definition "AllSecrets = removeAll (MNon (N Intruder)) AllNoncesLst"
 
 definition InitKnows :: "dmsg list" where 
