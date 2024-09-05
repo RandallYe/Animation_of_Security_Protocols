@@ -5,6 +5,9 @@ This repository contains our work to use sound animation (automatically generate
 - [What's included in the repo?](#whats-included-in-the-repo)
 - [How to load theories in Isabelle/HOL and generate Haskell code?](#how-to-load-theories-in-isabellehol-and-generate-haskell-code)
 - [How to run animators](#how-to-run-animators)
+- [Illustrations](#illustrations)
+  - [Manual exploration](#manual-exploration)
+  - [User-guided verification (manual + automatic)](#user-guided-verification-manual--automatic)
 
 
 # What's included in the repo?
@@ -60,5 +63,153 @@ The folder if its name starts with "Animator", this folder contains the Haskell 
 $ ghc Simulation.hs
 $ ghci Simulation.hs
 $ ./Simulation
+```
+
+# Illustrations
+
+## Manual exploration
+
+```
+Starting ITree Animation...
+Events:
+ (1) Env [Alice] Bob;
+ (2) Env [Alice] Intruder;
+ (3) Recv [Bob<=Intruder] {<N Intruder, Alice>}_PK Bob;
+ (4) Recv [Bob<=Intruder] {<N Intruder, Intruder>}_PK Bob;
+
+[Choose: 1-4]: 1
+Env_C (Alice,Bob)
+Events:
+ (1) Recv [Bob<=Intruder] {<N Intruder, Alice>}_PK Bob;
+ (2) Recv [Bob<=Intruder] {<N Intruder, Intruder>}_PK Bob;
+ (3) Sig ClaimSecret Alice (N Alice) (Set [ Bob ]);
+
+[Choose: 1-3]: 3
+Sig_C (ClaimSecret Alice (N Alice) (Set [Bob]))
+Events:
+ (1) Send [Alice=>Intruder] {<N Alice, Alice>}_PK Bob;
+ (2) Recv [Bob<=Intruder] {<N Intruder, Alice>}_PK Bob;
+ (3) Recv [Bob<=Intruder] {<N Intruder, Intruder>}_PK Bob;
+
+[Choose: 1-3]: 1
+Send_C (Alice,(Intruder,MEnc (MCmp (MNon (N Alice)) (MAg Alice)) (PK Bob)))
+Events:
+ (1) Recv [Bob<=Intruder] {<N Alice, Alice>}_PK Bob;
+ (2) Recv [Bob<=Intruder] {<N Intruder, Alice>}_PK Bob;
+ (3) Recv [Bob<=Intruder] {<N Intruder, Intruder>}_PK Bob;
+
+[Choose: 1-3]: 1
+Recv_C (Intruder,(Bob,MEnc (MCmp (MNon (N Alice)) (MAg Alice)) (PK Bob)))
+Events:
+ (1) Sig ClaimSecret Bob (N Bob) (Set [ Alice ]);
+
+[Choose: 1-1]:
+Sig_C (ClaimSecret Bob (N Bob) (Set [Alice]))
+Events:
+ (1) Sig StartProt Bob Alice (N Alice) (N Bob);
+
+[Choose: 1-1]:
+Sig_C (StartProt Bob Alice (N Alice) (N Bob))
+Events:
+ (1) Send [Bob=>Intruder] {<N Alice, N Bob>}_PK Alice;
+
+[Choose: 1-1]:
+Send_C (Bob,(Intruder,MEnc (MCmp (MNon (N Alice)) (MNon (N Bob))) (PK Alice)))
+Events:
+ (1) Recv [Alice<=Intruder] {<N Alice, N Bob>}_PK Alice;
+
+[Choose: 1-1]:
+Recv_C (Intruder,(Alice,MEnc (MCmp (MNon (N Alice)) (MNon (N Bob))) (PK Alice)))
+Events:
+ (1) Sig StartProt Alice Bob (N Alice) (N Bob);
+
+[Choose: 1-1]:
+Sig_C (StartProt Alice Bob (N Alice) (N Bob))
+Events:
+ (1) Send [Alice=>Intruder] {N Bob}_PK Bob;
+
+[Choose: 1-1]:
+Send_C (Alice,(Intruder,MEnc (MNon (N Bob)) (PK Bob)))
+Events:
+ (1) Sig EndProt Alice Bob (N Alice) (N Bob);
+ (2) Recv [Bob<=Intruder] {N Bob}_PK Bob;
+
+[Choose: 1-2]: 1
+Sig_C (EndProt Alice Bob (N Alice) (N Bob))
+Events:
+ (1) Recv [Bob<=Intruder] {N Bob}_PK Bob;
+
+[Choose: 1-1]: 1
+Recv_C (Intruder,(Bob,MEnc (MNon (N Bob)) (PK Bob)))
+Events:
+ (1) Sig EndProt Bob Alice (N Alice) (N Bob);
+
+[Choose: 1-1]:
+Sig_C (EndProt Bob Alice (N Alice) (N Bob))
+Events:
+ (1) Terminate;
+
+[Choose: 1-1]:
+Terminate_C ()
+Successfully Terminated: ()
+Trace: [Env [Alice] Bob, 
+    Sig ClaimSecret Alice (N Alice) (Set [ Bob ]), 
+    Send [Alice=>Intruder] {<N Alice, Alice>}_PK Bob, 
+    Recv [Bob<=Intruder] {<N Alice, Alice>}_PK Bob, 
+    Sig ClaimSecret Bob (N Bob) (Set [ Alice ]), 
+    Sig StartProt Bob Alice (N Alice) (N Bob), 
+    Send [Bob=>Intruder] {<N Alice, N Bob>}_PK Alice, 
+    Recv [Alice<=Intruder] {<N Alice, N Bob>}_PK Alice, 
+    Sig StartProt Alice Bob (N Alice) (N Bob), 
+    Send [Alice=>Intruder] {N Bob}_PK Bob, 
+    Sig EndProt Alice Bob (N Alice) (N Bob), 
+    Recv [Bob<=Intruder] {N Bob}_PK Bob, 
+    Sig EndProt Bob Alice (N Alice) (N Bob), 
+    Terminate, 
+]
+```
+
+## User-guided verification (manual + automatic) 
+
+```
+Starting ITree Animation...
+Events:
+ (1) Env [Alice] Bob;
+ (2) Env [Alice] Intruder;
+ (3) Recv [Bob<=Intruder] {<N Intruder, Alice>}_PK Bob;
+ (4) Recv [Bob<=Intruder] {<N Intruder, Intruder>}_PK Bob;
+
+[Choose: 1-4]: 2
+Env_C (Alice,Intruder)
+Events:
+ (1) Recv [Bob<=Intruder] {<N Intruder, Alice>}_PK Bob;
+ (2) Recv [Bob<=Intruder] {<N Intruder, Intruder>}_PK Bob;
+ (3) Sig ClaimSecret Alice (N Alice) (Set [ Intruder ]);
+
+[Choose: 1-3]: 3
+Sig_C (ClaimSecret Alice (N Alice) (Set [Intruder]))
+Events:
+ (1) Send [Alice=>Intruder] {<N Alice, Alice>}_PK Intruder;
+ (2) Recv [Bob<=Intruder] {<N Intruder, Alice>}_PK Bob;
+ (3) Recv [Bob<=Intruder] {<N Intruder, Intruder>}_PK Bob;
+
+[Choose: 1-3]: AReach 15 %Leak N Bob%
+AReach 15,  %Leak N Bob%
+Reachability by Auto: 15
+  Events for reachability check: ["Leak N Bob"]
+  Events for monitor: []
+..........................................................................................
+*** These events ["Leak N Bob"] are reached! ***
+Trace: [Env [Alice] Intruder, 
+    Sig ClaimSecret Alice (N Alice) (Set [ Intruder ]),
+    Send [Alice=>Intruder] {<N Alice, Alice>}_PK Intruder, 
+    Recv [Bob<=Intruder] {<N Alice, Alice>}_PK Bob, 
+    Sig ClaimSecret Bob (N Bob) (Set [ Alice ]), 
+    Sig StartProt Bob Alice (N Alice) (N Bob), 
+    Send [Bob=>Intruder] {<N Alice, N Bob>}_PK Alice, 
+    Recv [Alice<=Intruder] {<N Alice, N Bob>}_PK Alice, 
+    Sig StartProt Alice Intruder (N Alice) (N Bob), 
+    Send [Alice=>Intruder] {N Bob}_PK Intruder, 
+]
 ```
 
