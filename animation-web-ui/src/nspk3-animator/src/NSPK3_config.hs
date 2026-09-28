@@ -98,7 +98,7 @@ initKnows ::
      (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
      (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
      (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1)) Numeral_Type.Num1
-     Numeral_Type.Num1];
+     Numeral_Type.Num1 (Numeral_Type.Bit0 Numeral_Type.Num1)];
 initKnows =
   Sec_Messages.agentsLst
     [Sec_Messages.Agent (FSNat.Nmk Arith.zero_nat),
@@ -258,7 +258,7 @@ allSecrets ::
      (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
      (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
      (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1)) Numeral_Type.Num1
-     Numeral_Type.Num1];
+     Numeral_Type.Num1 (Numeral_Type.Bit0 Numeral_Type.Num1)];
 allSecrets =
   List.removeAll
     (Sec_Messages.MNon

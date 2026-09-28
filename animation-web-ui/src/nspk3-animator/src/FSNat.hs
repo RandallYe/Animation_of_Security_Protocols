@@ -1,6 +1,6 @@
 {-# LANGUAGE EmptyDataDecls, RankNTypes, ScopedTypeVariables #-}
 
-module FSNat(Fsnat(..), nat_of_fsnat, equal_fsnat) where {
+module FSNat(Fsnat(..), nat_of_fsnat, equal_fsnat, less_eq_fsnat) where {
 
 import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
   (>>=), (>>), (=<<), (&&), (||), (^), (^^), (.), ($), ($!), (++), (!!), Eq,
@@ -26,5 +26,8 @@ equal_fsnat = (\ k l -> Arith.equal_nat (nat_of_fsnat k) (nat_of_fsnat l));
 instance (Type_Length.Len a) => Eq (Fsnat a) where {
   a == b = equal_fsnat a b;
 };
+
+less_eq_fsnat :: forall a. (Type_Length.Len a) => Fsnat a -> Fsnat a -> Bool;
+less_eq_fsnat x y = Arith.less_eq_nat (nat_of_fsnat x) (nat_of_fsnat y);
 
 }

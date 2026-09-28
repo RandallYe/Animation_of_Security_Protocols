@@ -1,7 +1,7 @@
 {-# LANGUAGE EmptyDataDecls, RankNTypes, ScopedTypeVariables #-}
 
 module
-  List(fold, member, insert, union, remdups, removeAll, gen_length, map_filter,
+  List(fold, member, insert, remdups, removeAll, gen_length, map_filter,
         size_list)
   where {
 
@@ -25,9 +25,6 @@ member (x : xs) y = x == y || member xs y;
 
 insert :: forall a. (Eq a) => a -> [a] -> [a];
 insert x xs = (if member xs x then xs else x : xs);
-
-union :: forall a. (Eq a) => [a] -> [a] -> [a];
-union = fold insert;
 
 remdups :: forall a. (Eq a) => [a] -> [a];
 remdups [] = [];

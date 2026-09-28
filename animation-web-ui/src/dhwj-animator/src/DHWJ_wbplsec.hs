@@ -1196,7 +1196,7 @@ pIntruder0 i ni k s eve =
                   (all_jm_wm_msg123_agent_send eve) (\ _ -> True))
                 (\ m ->
                   Interaction_Trees.Ret
-                    (True, (Sec_Messages.breakm (List.insert m knows), sec))))
+                    (True, (Sec_Messages.breakl (List.insert m knows), sec))))
               (ITree_CSP.extchoice_itree
                 (Interaction_Trees.bind_itree
                   (ITree_CSP.inp_list_where Sec_Messages.recv

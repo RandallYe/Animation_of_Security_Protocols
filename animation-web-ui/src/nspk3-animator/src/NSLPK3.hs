@@ -41,7 +41,8 @@ lResponder ::
           (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
           (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
           (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
-          Numeral_Type.Num1 Numeral_Type.Num1)
+          Numeral_Type.Num1 Numeral_Type.Num1
+          (Numeral_Type.Bit0 Numeral_Type.Num1))
         ();
 lResponder b nb =
   Interaction_Trees.bind_itree
@@ -104,7 +105,7 @@ lPBob ::
       (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
       (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
       (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
-      Numeral_Type.Num1 Numeral_Type.Num1)
+      Numeral_Type.Num1 Numeral_Type.Num1 (Numeral_Type.Bit0 Numeral_Type.Num1))
     ();
 lPBob =
   lResponder (Sec_Messages.Agent (FSNat.Nmk Arith.one_nat))
@@ -162,11 +163,12 @@ lPBob =
       (Sec_Messages.Agent (FSNat.Nmk Arith.one_nat)));
 
 terminate_event ::
-  forall a b c d e f.
+  forall a b c d e f g.
     (Type_Length.Len a, Typerep.Typerep a, Type_Length.Len b, Typerep.Typerep b,
       Type_Length.Len c, Typerep.Typerep c, Type_Length.Len d,
       Typerep.Typerep d, Type_Length.Len e, Typerep.Typerep e,
-      Type_Length.Len f, Typerep.Typerep f) => [Sec_Messages.Chan a b c d e f];
+      Type_Length.Len f, Typerep.Typerep f, Type_Length.Len g,
+      Typerep.Typerep g) => [Sec_Messages.Chan a b c d e f g];
 terminate_event = [Sec_Messages.Terminate_C ()];
 
 lB_I_snd_msg ::
@@ -179,7 +181,8 @@ lB_I_snd_msg ::
                (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
                (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
                (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
-               Numeral_Type.Num1 Numeral_Type.Num1)))];
+               Numeral_Type.Num1 Numeral_Type.Num1
+               (Numeral_Type.Bit0 Numeral_Type.Num1))))];
 lB_I_snd_msg b nb =
   let {
     a = List.removeAll (Sec_Messages.Agent (FSNat.Nmk Arith.one_nat))
@@ -207,7 +210,8 @@ lB_I_snd_event ::
          (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
          (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
          (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
-         Numeral_Type.Num1 Numeral_Type.Num1];
+         Numeral_Type.Num1 Numeral_Type.Num1
+         (Numeral_Type.Bit0 Numeral_Type.Num1)];
 lB_I_snd_event b nb = map Sec_Messages.Send_C (lB_I_snd_msg b nb);
 
 lB_I_rcv_msg ::
@@ -220,7 +224,8 @@ lB_I_rcv_msg ::
                (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
                (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
                (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
-               Numeral_Type.Num1 Numeral_Type.Num1)))];
+               Numeral_Type.Num1 Numeral_Type.Num1
+               (Numeral_Type.Bit0 Numeral_Type.Num1))))];
 lB_I_rcv_msg b nb =
   let {
     asa = List.removeAll b
@@ -252,7 +257,8 @@ lB_I_rcv_event ::
          (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
          (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
          (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
-         Numeral_Type.Num1 Numeral_Type.Num1];
+         Numeral_Type.Num1 Numeral_Type.Num1
+         (Numeral_Type.Bit0 Numeral_Type.Num1)];
 lB_I_rcv_event b nb = map Sec_Messages.Recv_C (lB_I_rcv_msg b nb);
 
 lA_I_snd_msg ::
@@ -265,7 +271,8 @@ lA_I_snd_msg ::
                (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
                (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
                (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
-               Numeral_Type.Num1 Numeral_Type.Num1)))];
+               Numeral_Type.Num1 Numeral_Type.Num1
+               (Numeral_Type.Bit0 Numeral_Type.Num1))))];
 lA_I_snd_msg a na =
   let {
     bs = List.removeAll a
@@ -297,7 +304,8 @@ lA_I_snd_event ::
          (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
          (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
          (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
-         Numeral_Type.Num1 Numeral_Type.Num1];
+         Numeral_Type.Num1 Numeral_Type.Num1
+         (Numeral_Type.Bit0 Numeral_Type.Num1)];
 lA_I_snd_event a na = map Sec_Messages.Send_C (lA_I_snd_msg a na);
 
 lA_I_rcv_msg ::
@@ -310,7 +318,8 @@ lA_I_rcv_msg ::
                (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
                (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
                (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
-               Numeral_Type.Num1 Numeral_Type.Num1)))];
+               Numeral_Type.Num1 Numeral_Type.Num1
+               (Numeral_Type.Bit0 Numeral_Type.Num1))))];
 lA_I_rcv_msg a na =
   concatMap
     (\ nb ->
@@ -337,20 +346,22 @@ lA_I_rcv_event ::
          (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
          (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
          (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
-         Numeral_Type.Num1 Numeral_Type.Num1];
+         Numeral_Type.Num1 Numeral_Type.Num1
+         (Numeral_Type.Bit0 Numeral_Type.Num1)];
 lA_I_rcv_event a na = map Sec_Messages.Recv_C (lA_I_rcv_msg a na);
 
 b_I_sig ::
-  forall a b c d e.
+  forall a b c d e f.
     (Type_Length.Len b, Typerep.Typerep b, Type_Length.Len c, Typerep.Typerep c,
       Type_Length.Len d, Typerep.Typerep d, Type_Length.Len e,
-      Typerep.Typerep e) => Sec_Messages.Dagent
+      Typerep.Typerep e, Type_Length.Len f,
+      Typerep.Typerep f) => Sec_Messages.Dagent
                               (Numeral_Type.Bit0 Numeral_Type.Num1) ->
                               a -> [Sec_Messages.Chan
                                       (Numeral_Type.Bit0 Numeral_Type.Num1)
                                       (Numeral_Type.Bit0
 (Numeral_Type.Bit0 Numeral_Type.Num1))
-                                      b c d e];
+                                      b c d e f];
 b_I_sig b nb =
   concatMap
     (\ na ->
@@ -370,7 +381,8 @@ a_I_sig ::
          (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
          (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
          (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
-         Numeral_Type.Num1 Numeral_Type.Num1];
+         Numeral_Type.Num1 Numeral_Type.Num1
+         (Numeral_Type.Bit0 Numeral_Type.Num1)];
 a_I_sig a na =
   concatMap
     (\ nb ->
@@ -389,7 +401,8 @@ lEvents_A_B_I ::
       (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
       (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
       (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
-      Numeral_Type.Num1 Numeral_Type.Num1);
+      Numeral_Type.Num1 Numeral_Type.Num1
+      (Numeral_Type.Bit0 Numeral_Type.Num1));
 lEvents_A_B_I =
   Set.Set
     (List.remdups
@@ -744,7 +757,8 @@ lEvents_A_B_I =
                        (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
                        (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
                        (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
-                       Numeral_Type.Num1 Numeral_Type.Num1])
+                       Numeral_Type.Num1 Numeral_Type.Num1
+                       (Numeral_Type.Bit0 Numeral_Type.Num1)])
                 (Sec_Messages.Agent (FSNat.Nmk Arith.one_nat))
                 ((Interaction_Trees.pfun_app ::
                    Interaction_Trees.Pfun
@@ -821,14 +835,14 @@ lEvents_A_B_I =
                   (Sec_Messages.Agent (FSNat.Nmk Arith.one_nat)))));
 
 pLeakOnlyOnce ::
-  forall a b c d e f.
+  forall a b c d e f g.
     (Type_Length.Len a, Typerep.Typerep a, Type_Length.Len b, Typerep.Typerep b,
       Type_Length.Len c, Typerep.Typerep c, Type_Length.Len d,
       Typerep.Typerep d, Type_Length.Len e, Typerep.Typerep e,
-      Type_Length.Len f,
-      Typerep.Typerep f) => [Sec_Messages.Dmsg a b c d e f] ->
+      Type_Length.Len f, Typerep.Typerep f, Type_Length.Len g,
+      Typerep.Typerep g) => [Sec_Messages.Dmsg a b c d e f g] ->
                               Interaction_Trees.Itree
-                                (Sec_Messages.Chan a b c d e f) ();
+                                (Sec_Messages.Chan a b c d e f g) ();
 pLeakOnlyOnce secrects =
   CSP_operators.indexed_inter_csp_list secrects
     (ITree_CSP.outp Sec_Messages.leak);
@@ -838,7 +852,7 @@ allPossibleMsgsRecvByAgents ::
      (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
      (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
      (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1)) Numeral_Type.Num1
-     Numeral_Type.Num1];
+     Numeral_Type.Num1 (Numeral_Type.Bit0 Numeral_Type.Num1)];
 allPossibleMsgsRecvByAgents =
   map Sec_Messages.last4
     (lA_I_rcv_msg (Sec_Messages.Agent (FSNat.Nmk Arith.zero_nat))
@@ -970,18 +984,21 @@ lPIntruder0 ::
          (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
          (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
          (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
-         Numeral_Type.Num1 Numeral_Type.Num1] ->
+         Numeral_Type.Num1 Numeral_Type.Num1
+         (Numeral_Type.Bit0 Numeral_Type.Num1)] ->
         [Sec_Messages.Dmsg (Numeral_Type.Bit0 Numeral_Type.Num1)
            (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
            (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
            (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
-           Numeral_Type.Num1 Numeral_Type.Num1] ->
+           Numeral_Type.Num1 Numeral_Type.Num1
+           (Numeral_Type.Bit0 Numeral_Type.Num1)] ->
           Interaction_Trees.Itree
             (Sec_Messages.Chan (Numeral_Type.Bit0 Numeral_Type.Num1)
               (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
               (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
               (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
-              Numeral_Type.Num1 Numeral_Type.Num1)
+              Numeral_Type.Num1 Numeral_Type.Num1
+              (Numeral_Type.Bit0 Numeral_Type.Num1))
             ();
 lPIntruder0 i ni k s =
   Interaction_Trees.bind_itree (Interaction_Trees.Ret (True, (k, s)))
@@ -1143,7 +1160,7 @@ lPIntruder0 i ni k s =
                   (\ _ -> True))
                 (\ (_, (_, (_, m))) ->
                   Interaction_Trees.Ret
-                    (True, (Sec_Messages.breakm (List.insert m knows), sec))))
+                    (True, (Sec_Messages.breakl (List.insert m knows), sec))))
               (ITree_CSP.extchoice_itree
                 (Interaction_Trees.bind_itree
                   (ITree_CSP.inp_list_where Sec_Messages.recv
@@ -1220,18 +1237,21 @@ lPIntruder1 ::
          (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
          (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
          (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
-         Numeral_Type.Num1 Numeral_Type.Num1] ->
+         Numeral_Type.Num1 Numeral_Type.Num1
+         (Numeral_Type.Bit0 Numeral_Type.Num1)] ->
         [Sec_Messages.Dmsg (Numeral_Type.Bit0 Numeral_Type.Num1)
            (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
            (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
            (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
-           Numeral_Type.Num1 Numeral_Type.Num1] ->
+           Numeral_Type.Num1 Numeral_Type.Num1
+           (Numeral_Type.Bit0 Numeral_Type.Num1)] ->
           Interaction_Trees.Itree
             (Sec_Messages.Chan (Numeral_Type.Bit0 Numeral_Type.Num1)
               (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
               (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
               (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
-              Numeral_Type.Num1 Numeral_Type.Num1)
+              Numeral_Type.Num1 Numeral_Type.Num1
+              (Numeral_Type.Bit0 Numeral_Type.Num1))
             ();
 lPIntruder1 i ni k s =
   ITree_CSP.exception
@@ -1244,24 +1264,26 @@ rename_leak ::
       (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
       (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
       (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
-      Numeral_Type.Num1 Numeral_Type.Num1,
+      Numeral_Type.Num1 Numeral_Type.Num1 (Numeral_Type.Bit0 Numeral_Type.Num1),
      Sec_Messages.Chan (Numeral_Type.Bit0 Numeral_Type.Num1)
        (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
        (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
        (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
-       Numeral_Type.Num1 Numeral_Type.Num1)];
+       Numeral_Type.Num1 Numeral_Type.Num1
+       (Numeral_Type.Bit0 Numeral_Type.Num1))];
 rename_leak =
   map (\ x -> (Sec_Messages.Leak_C x, Sec_Messages.Leak_C x))
     NSPK3_config.allSecrets;
 
 rename_sig ::
-  forall a b c d e f g h.
+  forall a b c d e f g h i j.
     (Type_Length.Len a, Typerep.Typerep a, Type_Length.Len b, Typerep.Typerep b,
       Type_Length.Len c, Typerep.Typerep c, Type_Length.Len d,
       Typerep.Typerep d, Type_Length.Len e, Typerep.Typerep e,
       Type_Length.Len f, Typerep.Typerep f, Type_Length.Len g,
-      Typerep.Typerep g, Type_Length.Len h,
-      Typerep.Typerep h) => Sec_Messages.Dagent
+      Typerep.Typerep g, Type_Length.Len h, Typerep.Typerep h,
+      Type_Length.Len i, Typerep.Typerep i, Type_Length.Len j,
+      Typerep.Typerep j) => Sec_Messages.Dagent
                               (Numeral_Type.Bit0 Numeral_Type.Num1) ->
                               FSNat.Fsnat
                                 (Numeral_Type.Bit0
@@ -1270,12 +1292,12 @@ rename_sig ::
                                     (Numeral_Type.Bit0 Numeral_Type.Num1)
                                     (Numeral_Type.Bit0
                                       (Numeral_Type.Bit0 Numeral_Type.Num1))
-                                    a b c d,
+                                    a b c d e,
                                    Sec_Messages.Chan
                                      (Numeral_Type.Bit0 Numeral_Type.Num1)
                                      (Numeral_Type.Bit0
                                        (Numeral_Type.Bit0 Numeral_Type.Num1))
-                                     e f g h)];
+                                     f g h i j)];
 rename_sig i ni =
   concatMap
     (\ a ->
@@ -1304,12 +1326,13 @@ rename_I_L ::
       (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
       (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
       (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
-      Numeral_Type.Num1 Numeral_Type.Num1,
+      Numeral_Type.Num1 Numeral_Type.Num1 (Numeral_Type.Bit0 Numeral_Type.Num1),
      Sec_Messages.Chan (Numeral_Type.Bit0 Numeral_Type.Num1)
        (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
        (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
        (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
-       Numeral_Type.Num1 Numeral_Type.Num1)];
+       Numeral_Type.Num1 Numeral_Type.Num1
+       (Numeral_Type.Bit0 Numeral_Type.Num1))];
 rename_I_L =
   map (\ x -> (Sec_Messages.Send_C x, Sec_Messages.Send_C x))
     (lA_I_snd_msg (Sec_Messages.Agent (FSNat.Nmk Arith.zero_nat))
@@ -1639,7 +1662,7 @@ lPIntruder ::
       (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
       (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
       (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
-      Numeral_Type.Num1 Numeral_Type.Num1)
+      Numeral_Type.Num1 Numeral_Type.Num1 (Numeral_Type.Bit0 Numeral_Type.Num1))
     ();
 lPIntruder =
   ITree_CSP.rename (Set.Set rename_I_L)
@@ -1710,7 +1733,8 @@ lInitiator ::
           (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
           (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
           (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
-          Numeral_Type.Num1 Numeral_Type.Num1)
+          Numeral_Type.Num1 Numeral_Type.Num1
+          (Numeral_Type.Bit0 Numeral_Type.Num1))
         ();
 lInitiator a na =
   Interaction_Trees.bind_itree
@@ -1775,7 +1799,7 @@ lPAlice ::
       (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
       (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
       (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
-      Numeral_Type.Num1 Numeral_Type.Num1)
+      Numeral_Type.Num1 Numeral_Type.Num1 (Numeral_Type.Bit0 Numeral_Type.Num1))
     ();
 lPAlice =
   lInitiator (Sec_Messages.Agent (FSNat.Nmk Arith.zero_nat))
@@ -1838,7 +1862,7 @@ nSLPK3 ::
       (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
       (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
       (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
-      Numeral_Type.Num1 Numeral_Type.Num1)
+      Numeral_Type.Num1 Numeral_Type.Num1 (Numeral_Type.Bit0 Numeral_Type.Num1))
     ();
 nSLPK3 =
   ITree_CSP.gpar_csp

@@ -3,7 +3,7 @@
 module
   Arith(Int(..), Nat(..), Num(..), integer_of_nat, plus_nat, one_nat, suc,
          less_nat, zero_nat, divmod_integer, nat_of_integer, equal_nat,
-         less_eq_nat, times_nat, modulo_integer, modulo_nat)
+         minus_nat, less_eq_nat, times_nat, modulo_integer, modulo_nat)
   where {
 
 import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
@@ -72,6 +72,10 @@ nat_of_integer k = Nat (Orderings.max (0 :: Integer) k);
 
 equal_nat :: Nat -> Nat -> Bool;
 equal_nat m n = integer_of_nat m == integer_of_nat n;
+
+minus_nat :: Nat -> Nat -> Nat;
+minus_nat m n =
+  Nat (Orderings.max (0 :: Integer) (integer_of_nat m - integer_of_nat n));
 
 less_eq_nat :: Nat -> Nat -> Bool;
 less_eq_nat m n = integer_of_nat m <= integer_of_nat n;

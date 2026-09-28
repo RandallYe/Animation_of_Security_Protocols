@@ -44,7 +44,7 @@ newtype NSPK3_TEvent = NSPK3_TEvent (TEvent
   (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
   (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
   (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
-  Numeral_Type.Num1 Numeral_Type.Num1)
+  Numeral_Type.Num1 Numeral_Type.Num1 (Numeral_Type.Bit0 Numeral_Type.Num1))
   deriving (Eq, Read, Show);
 
 newtype NSLPK3_TEvent = NSLPK3_TEvent (TEvent 
@@ -52,7 +52,7 @@ newtype NSLPK3_TEvent = NSLPK3_TEvent (TEvent
   (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
   (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
   (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
-  Numeral_Type.Num1 Numeral_Type.Num1)
+  Numeral_Type.Num1 Numeral_Type.Num1 (Numeral_Type.Bit0 Numeral_Type.Num1))
   deriving (Eq, Read, Show);
 
 newtype NSPK3_EventTree = NSPK3_EventTree (EventTree 
@@ -60,7 +60,7 @@ newtype NSPK3_EventTree = NSPK3_EventTree (EventTree
   (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
   (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
   (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
-  Numeral_Type.Num1 Numeral_Type.Num1)
+  Numeral_Type.Num1 Numeral_Type.Num1 (Numeral_Type.Bit0 Numeral_Type.Num1))
   deriving (Eq, Read, Show);
 
 newtype NSLPK3_EventTree = NSLPK3_EventTree (EventTree 
@@ -68,7 +68,7 @@ newtype NSLPK3_EventTree = NSLPK3_EventTree (EventTree
   (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
   (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
   (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
-  Numeral_Type.Num1 Numeral_Type.Num1)
+  Numeral_Type.Num1 Numeral_Type.Num1 (Numeral_Type.Bit0 Numeral_Type.Num1))
   deriving (Eq, Read, Show);
 
 -- | A top-level function to explore an ITree for given steps of external events and internal events 
@@ -77,7 +77,7 @@ explore_tree_NSPK3 :: Int -> Int -> EventTree
   (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
   (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
   (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
-  Numeral_Type.Num1 Numeral_Type.Num1
+  Numeral_Type.Num1 Numeral_Type.Num1 (Numeral_Type.Bit0 Numeral_Type.Num1)
 explore_tree_NSPK3 steps tau_steps = ETNode (TEP 0 0 Root) (explore_tree_cnt nSPK3 steps 1 tau_steps tau_steps)
 
 -- | A top-level function to explore an ITree for given steps of external events and internal events 
@@ -86,5 +86,5 @@ explore_tree_NSLPK3 :: Int -> Int -> EventTree
   (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
   (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
   (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
-  Numeral_Type.Num1 Numeral_Type.Num1
+  Numeral_Type.Num1 Numeral_Type.Num1 (Numeral_Type.Bit0 Numeral_Type.Num1)
 explore_tree_NSLPK3 steps tau_steps = ETNode (TEP 0 0 Root) (explore_tree_cnt nSLPK3 steps 1 tau_steps tau_steps)
