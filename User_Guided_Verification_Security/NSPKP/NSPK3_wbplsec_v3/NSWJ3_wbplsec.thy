@@ -238,7 +238,7 @@ definition PIntruder0:: "dagent \<Rightarrow> dnonce \<Rightarrow> dmsg list \<R
             \<comment> \<open> Intruder can hear anything Alice and Bob can send \<close>
             (m) \<leftarrow> inp_in cjam (set (msgsabj eve));
             \<comment> \<open> Intruder can fake any message (it can infer) to the target \<close>
-            Ret (True, breakm (List.insert m knows), sec)
+            Ret (True, breakl (List.insert m knows), sec)
       }
     \<comment> \<open> If we consider an active attack so it can send inferred messages to Alice and Bob from Intruder.
     Though the intruder can send any inferred message, here we only consider watermarked messages 
@@ -353,7 +353,7 @@ definition "NSWJ3_active_eve1 = NSWJ3_active' Eve1"
 definition "NSWJ3_active_eve2 = NSWJ3_active' Eve2"
 definition "NSWJ3_active_eve3 = NSWJ3_active' Eve3"
 definition "NSWJ3_active_eve4 = NSWJ3_active' Eve4"
-animate_sec NSWJ3_active_eve2
+animate_sec NSWJ3_active_eve1
 
 (*
 Reachability:
@@ -374,7 +374,7 @@ definition PIntruder0_passive:: "dagent \<Rightarrow> dnonce \<Rightarrow> dmsg 
             \<comment> \<open> Intruder can hear anything Alice and Bob can send \<close>
             (m) \<leftarrow> inp_in cjam (set (msgsabj eve));
             \<comment> \<open> Intruder can fake any message (it can infer) to the target \<close>
-            Ret (True, breakm (List.insert m knows), sec)
+            Ret (True, breakl (List.insert m knows), sec)
       }
     \<comment> \<open> If we consider a passive attack so it cannot send inferred messages to Alice and Bob from Intruder.\<close>
     \<^cancel>\<open>\<box> do { inp_in fake (set [(I, I, B, m'). 

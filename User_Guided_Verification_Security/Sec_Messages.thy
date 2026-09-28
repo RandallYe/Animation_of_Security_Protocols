@@ -360,6 +360,146 @@ definition "extract_nonces xs = (filter is_MNon xs)"
 value "extract_dkeys [((MK (Ks (nmk 1))) :: (2,4,4,2,2,1,1) dmsg)]"
 
 subsection \<open> Message inferences \<close>
+
+(*
+fun break_one :: 
+  "('a::len,'n::len,'k::len,'k::len,'g::len,'bm::len,'bl::len) dmsg \<Rightarrow>
+   ('a,'n,'k,'k,'g,'bm,'bl) dmsg list \<Rightarrow>
+   ('a,'n,'k,'k,'g,'bm,'bl) dmsg set \<Rightarrow>
+   ('a,'n,'k,'k,'g,'bm,'bl) dmsg list" where
+  "break_one (MK k) ams as = List.insert (MK k) ams"
+| "break_one (MAg A) ams as = List.insert (MAg A) ams"
+| "break_one (MNon A) ams as = List.insert (MNon A) ams"
+| "break_one (MPair A B) ams as =
+     (let ams1 = break_one A ams as in
+      break_one B ams1 as)"
+| "break_one (MAEnc A (MK (Kp k))) ams as =
+     (let ams' = List.insert (MAEnc A (MK (Kp k))) ams in
+     if MK (Ks k) \<in> set ams then
+       break_one A ams' as
+     else ams')"
+| "break_one (MSig A (MK (Ks k))) ams as =
+     (let ams' = List.insert (MSig A (MK (Ks k))) ams in
+     if MK (Kp k) \<in> set ams then
+       break_one A ams' as
+     else ams')"
+| "break_one (MSEnc A (MK (Ks k))) ams as =
+     (let ams' = List.insert (MSEnc A (MK (Ks k))) ams in
+     if MK (Ks k) \<in> set ams then
+       break_one A ams' as
+     else ams')"
+| "break_one m ams as = List.insert m ams"
+
+(* One pass over a list, no look-ahead *)
+fun break_pass ::
+  "('a::len,'n::len,'k::len,'k::len,'g::len,'bm::len,'bl::len) dmsg list \<Rightarrow>
+   ('a,'n,'k,'k,'g,'bm,'bl) dmsg list \<Rightarrow>
+   ('a,'n,'k,'k,'g,'bm,'bl) dmsg set \<Rightarrow>
+   ('a,'n,'k,'k,'g,'bm,'bl) dmsg list" where
+  "break_pass [] ams as = ams"
+| "break_pass (x#xs) ams as = break_pass xs (break_one x ams as) as"
+
+(* Iterate until stable, termination by finiteness of the type *)
+function break_fix ::
+  "('a::len,'n::len,'k::len,'k::len,'g::len,'bm::len,'bl::len) dmsg list \<Rightarrow>
+   ('a,'n,'k,'k,'g,'bm,'bl) dmsg list \<Rightarrow>
+   ('a,'n,'k,'k,'g,'bm,'bl) dmsg set \<Rightarrow>
+   ('a,'n,'k,'k,'g,'bm,'bl) dmsg list" where
+  "break_fix xs ams as =
+     (let ams' = break_pass xs ams as in
+      if set ams' = set ams then ams
+      else break_fix xs ams' as)"
+  apply auto[1]
+  by fastforce
+
+
+value "break_fix value ([MAg (Agent (nmk 1)), MAg (Agent (nmk 0))] :: (2,4,4,4,2,2,2) dmsg list)"
+*)
+
+fun submsg_list :: "('a::len, 'n::len, 'k::len, 'k::len, 'g::len, 'bm::len, 'bl::len) dmsg \<Rightarrow> 
+  ('a::len, 'n::len, 'k::len, 'k::len, 'g::len, 'bm::len, 'bl::len) dmsg list" where
+"submsg_list (MAg a)       = [MAg a]" |
+"submsg_list (MNon a)      = [MNon a]" |
+"submsg_list (MK a)        = [MK a]" |
+"submsg_list (MPair m1 m2) = (MPair m1 m2) # submsg_list m1 @ submsg_list m2" |
+"submsg_list (MAEnc m k)   = (MAEnc m k) # submsg_list m @ submsg_list k" |
+"submsg_list (MSig m k)    = (MSig m k) # submsg_list m @ submsg_list k" |
+"submsg_list (MSEnc m k)   = (MSEnc m k) # submsg_list m @ submsg_list k" |
+"submsg_list (MExpg a)     = [MExpg a]" |
+"submsg_list (MModExp m k) = (MModExp m k) # submsg_list m @ submsg_list k" |
+"submsg_list (MBitm b)     = [MBitm b]" |
+"submsg_list (MWat m k)    = (MWat m k) # submsg_list m @ submsg_list k" |
+"submsg_list (MJam m k)    = (MJam m k) # submsg_list m @ submsg_list k"
+
+definition submsgs_list :: "('a::len, 'n::len, 'k::len, 'k::len, 'g::len, 'bm::len, 'bl::len) dmsg list 
+  \<Rightarrow> ('a::len, 'n::len, 'k::len, 'k::len, 'g::len, 'bm::len, 'bl::len) dmsg list" where
+"submsgs_list xs = remdups (concat (map submsg_list xs))"
+
+fun one_step :: "('a::len, 'n::len, 'k::len, 'k::len, 'g::len, 'bm::len, 'bl::len) dmsg \<Rightarrow> 
+  ('a::len, 'n::len, 'k::len, 'k::len, 'g::len, 'bm::len, 'bl::len) dmsg set \<Rightarrow> 
+  ('a::len, 'n::len, 'k::len, 'k::len, 'g::len, 'bm::len, 'bl::len) dmsg list" where
+"one_step m K = (case m of
+    MPair m1 m2 \<Rightarrow> [m1, m2]
+  | MAEnc m' (MK (Kp k)) \<Rightarrow> (if MK (Ks k) \<in> K then [m'] else [])
+  | MSig m' (MK (Ks k)) \<Rightarrow> (if MK (Kp k) \<in> K then [m'] else [])
+  | MSEnc m' (MK (Ks k)) \<Rightarrow> (if MK (Ks k) \<in> K then [m'] else [])
+  | MSEnc m' (MModExp (MModExp (MExpg gn) a) b) \<Rightarrow>
+      (if (MModExp (MExpg gn) a \<in> K \<and> b \<in> K) \<or>
+          (MModExp (MExpg gn) b \<in> K \<and> a \<in> K) \<or>
+          (MExpg gn \<in> K \<and> a \<in> K \<and> b \<in> K)
+       then [m'] else [])
+  | MWat m' k \<Rightarrow> [m']
+  | MJam (MWat m' (MBitm bb)) (MBitm b) \<Rightarrow>
+      (if b = Null \<or> (b \<le> bb \<and> MBitm b \<in> K) then [m'] else [])
+  | _ \<Rightarrow> [])"
+
+definition step_once :: "('a::len, 'n::len, 'k::len, 'k::len, 'g::len, 'bm::len, 'bl::len) dmsg list 
+  \<Rightarrow> ('a::len, 'n::len, 'k::len, 'k::len, 'g::len, 'bm::len, 'bl::len) dmsg list" where
+"step_once K = remdups (K @ concat (map (\<lambda>m. one_step m (set K)) K))"
+
+fun iter_closure :: "nat \<Rightarrow> ('a::len, 'n::len, 'k::len, 'k::len, 'g::len, 'bm::len, 'bl::len) dmsg list \<Rightarrow> 
+  ('a::len, 'n::len, 'k::len, 'k::len, 'g::len, 'bm::len, 'bl::len) dmsg list" where
+"iter_closure 0 K = K" |
+"iter_closure (Suc n) K = iter_closure n (step_once K)"
+
+definition breakl :: "('a::len, 'n::len, 'k::len, 'k::len, 'g::len, 'bm::len, 'bl::len) dmsg list \<Rightarrow> 
+  ('a::len, 'n::len, 'k::len, 'k::len, 'g::len, 'bm::len, 'bl::len) dmsg list" where
+"breakl xs = iter_closure (List.length (submsgs_list xs) + 1) (remdups xs)"
+
+value "breakl [MAEnc (MK (Ks (nmk 1))) (MK (Kp (nmk 0))), 
+  MAEnc (MAg (Agent (nmk 0))) (MK (Kp (nmk 1))), MK (Ks (nmk 0))] :: (2,4,4,4,2,2,3) dmsg list"
+
+text \<open> jam1: not breakable since the bitmask b' of the jammed message is not known \<close>
+value "breakl [
+  MJam (MWat (mknon 0) ((mkbm 0 1))) (mkbm 0 2)] 
+  :: (2,4,4,4,2,2,3) dmsg list"
+
+text \<open> jam1: not breakable even b' is known because the jammed message is not watermarked. \<close>
+value "breakl [
+  MJam (mknon 0) (mkbm 0 1), (mkbm 0 1)] 
+  :: (2,4,4,4,2,2,3) dmsg list"
+
+text \<open> jam1: not breakable since the bitmask b' of the jammed message is not a prefix of that (b) of 
+  the watermarked message. \<close>
+value "breakl [
+  MJam (MWat (mknon 0) ((mkbm 0 1))) (mkbm 0 2), (mkbm 0 2)] 
+  :: (2,4,4,4,2,2,3) dmsg list"
+
+value "((Bm (nmk 0) (nmk 2)) :: (2,3) dbitmask) \<le> (Bm (nmk 0) (nmk 1))"
+
+text \<open> jam1: breakable since b' <= b and b' is known \<close>
+value "breakl [
+  MJam (MWat (mknon 0) ((mkbm 0 1))) (mkbm 0 1),
+  (mkbm 0 1)] 
+  :: (2,4,4,4,2,2,3) dmsg list"
+
+text \<open> jam1: breakable since b' <= b and b' is known \<close>
+value "breakl [
+  MJam (MWat (mknon 0) ((mkbm 0 2))) (mkbm 0 1),
+  (mkbm 0 1)] 
+  :: (2,4,4,4,2,2,2) dmsg list"
+
+(*
 text \<open> @{text "break_lst xs ys as"} break down a list of messages and ys is the list of messages that 
 have been broken down previously, and as is the set of atomic messages (parts), used to decide if it
 is necessary to carry further break down or not for an encrypted or signed message. \<close>
@@ -416,39 +556,38 @@ though it still can be breakdown.
   or (@{text "(g\<^sub>m ^\<^sub>m b)"} and @{text "a"}) in the messages because 
   @{text "((g\<^sub>m ^\<^sub>m a) ^\<^sub>m b)"} is equal to @{text "((g\<^sub>m ^\<^sub>m b) ^\<^sub>m a)"}.
 \<close>
-"break_lst ((MSEnc m k)#xs) ams as = (case k of
+"break_lst ((MSEnc m (MK (Ks k)))#xs) ams as =
   \<comment> \<open> If symmetric encryption using a private key, \<close>
-  (MK (Ks k)) \<Rightarrow> (if (MK (Ks k)) \<in> as then
+  (if (MK (Ks k)) \<in> as then
     (if List.member ams (MK (Ks k)) then
       break_lst (m#xs) (List.insert (MSEnc m (MK (Ks k))) ams) as
-    else 
+    else
       let rams = break_lst xs ams as
       in  if List.member rams (MK (Ks k)) then
-          break_lst (m#xs) (List.insert (MAEnc m (MK (Ks k))) ams) as
+          break_lst (m#xs) (List.insert (MSEnc m (MK (Ks k))) ams) as
         else
-          break_lst xs (List.insert (MAEnc m (MK (Ks k))) (ams)) as
+          break_lst xs (List.insert (MSEnc m (MK (Ks k))) (ams)) as
     )
   else
-    break_lst xs (List.insert (MAEnc m (MK (Ks k))) (ams)) as
-  ) |
+    break_lst xs (List.insert (MSEnc m (MK (Ks k))) (ams)) as
+  )" |
+"break_lst ((MSEnc m (((g\<^sub>m gn) ^\<^sub>m a) ^\<^sub>m b))#xs) ams as =
   \<comment> \<open> If the key is a modular exponentiation used in Diffie-Hellman, \<close>
-  (((g\<^sub>m gn) ^\<^sub>m a) ^\<^sub>m b) \<Rightarrow> 
-     (if (List.member ams (((g\<^sub>m gn) ^\<^sub>m a)) \<and> List.member ams (b)) \<or> 
-         (List.member ams (((g\<^sub>m gn) ^\<^sub>m b)) \<and> List.member ams (a)) \<or> 
-         (List.member ams ((g\<^sub>m gn)) \<and> List.member ams (a) \<and> List.member ams (b)) then 
-          break_lst (m#xs) (List.insert (MSEnc m k) ams) as
-        else 
-          let rams = break_lst xs ams as
-          in if (List.member rams (((g\<^sub>m gn) ^\<^sub>m a)) \<and> List.member rams (b)) \<or> 
-               (List.member rams (((g\<^sub>m gn) ^\<^sub>m b)) \<and> List.member rams (a)) \<or> 
-               (List.member rams ((g\<^sub>m gn)) \<and> List.member rams (a) \<and> List.member rams (b)) then 
-              break_lst (m#xs) (List.insert (MSEnc m k) ams) as
-            else
-              break_lst xs (List.insert (MSEnc m k) (ams)) as
-    ) |
-  \<comment> \<open> Otherwise, we won't break it \<close>
-  _ \<Rightarrow> break_lst xs (List.insert (MSEnc m k) (ams)) as
-) "
+  (if (List.member ams (((g\<^sub>m gn) ^\<^sub>m a)) \<and> List.member ams (b)) \<or>
+      (List.member ams (((g\<^sub>m gn) ^\<^sub>m b)) \<and> List.member ams (a)) \<or>
+      (List.member ams ((g\<^sub>m gn)) \<and> List.member ams (a) \<and> List.member ams (b)) then
+     break_lst (m#xs) (List.insert (MSEnc m (((g\<^sub>m gn) ^\<^sub>m a) ^\<^sub>m b)) ams) as
+   else
+     let rams = break_lst xs ams as
+     in if (List.member rams (((g\<^sub>m gn) ^\<^sub>m a)) \<and> List.member rams (b)) \<or>
+           (List.member rams (((g\<^sub>m gn) ^\<^sub>m b)) \<and> List.member rams (a)) \<or>
+           (List.member rams ((g\<^sub>m gn)) \<and> List.member rams (a) \<and> List.member rams (b)) then
+          break_lst (m#xs) (List.insert (MSEnc m (((g\<^sub>m gn) ^\<^sub>m a) ^\<^sub>m b)) ams) as
+        else
+          break_lst xs (List.insert (MSEnc m (((g\<^sub>m gn) ^\<^sub>m a) ^\<^sub>m b)) (ams)) as
+  )" |
+\<comment> \<open> Otherwise, we won't break it \<close>
+"break_lst ((MSEnc m k)#xs) ams as = break_lst xs (List.insert (MSEnc m k) (ams)) as"
 | 
 "break_lst ((MExpg a)#xs) ams as = break_lst xs (List.insert (MExpg a) (ams)) as" |
 \<comment> \<open> We cannot break anything from a^b but the message should be kept \<close>
@@ -512,6 +651,7 @@ value "breakl [mkag 1, mkag 0, (mknon 0), {(mknon 1)}\<^sup>j\<^bsub>(mkbm 0 2)\
 
 text \<open> Should @{text "(mknon 1)"} be learned. \<close>
 value "breakm [mkag 1, mkag 0, (mknon 0), {(mknon 1)}\<^sup>j\<^bsub>(mkbm 0 2)\<^esub> , (mkbm 0 2)] :: (2,4,4,4,2,2,2) dmsg list"
+*)
 
 text \<open> Assume @{text "((g\<^sub>m x) ^\<^sub>m a ^\<^sub>m b) = ((g\<^sub>m x) ^\<^sub>m b ^\<^sub>m a)"}, use this function to swap a and b. \<close>
 fun swap_mod_exp :: "('a::len, 'n::len, 'k::len, 's::len, 'g::len, 'bm::len, 'bl::len) dmsg \<Rightarrow> 
@@ -715,7 +855,8 @@ fun buildable :: "('a::len, 'n::len, 'k::len, 's::len, 'g::len, 'bm::len, 'bl::l
     (MModExp m k) \<Rightarrow> buildable m ms \<and> buildable k ms |
     (MBitm b) \<Rightarrow> False |
     (MWat m k) \<Rightarrow> buildable m ms \<and> buildable k ms |
-    (MJam m k) \<Rightarrow> buildable m ms \<and> buildable k ms
+    \<comment> \<open>Jam2 is omitted: building a jammed message is not part of the intruder's capabilities here. \<close>
+    (MJam m k) \<Rightarrow> False
   )
 )
 "
@@ -793,6 +934,908 @@ definition buildw :: "('a::len, 'n::len, 'k::len, 's::len, 'g::len, 'bm::len, 'b
 
 value "buildw [mknon 0, mknon 1, mkbm 2] 2"
 *)
+
+subsection \<open> Metatheoretic properties \<close>
+
+text \<open> We record and prove the metatheoretic properties of the symbolic framework stated
+informally in the accompanying paper. They are properties of the message theory itself, rather
+than of any particular protocol instance: knowledge monotonicity for the build-up inference
+relation, injectivity of watermarking and jamming (non-forgeability), the prefix characterisation
+of the bitmask order that underlies jamming elimination, and the asymmetry between replay (rule
+Wat1) and forgery (rule Wat2) at the level of the breakdown function @{text breakl}. \<close>
+
+subsubsection \<open> Buildable messages \<close>
+
+text \<open> We record the defining equation of @{text buildable} for each constructor, so that
+@{text simp} unfolds @{text "buildable m ms"} only when @{text m} is a concrete message; this
+avoids splitting on the structure of sub-term variables during the structural inductions below. \<close>
+
+declare buildable.simps[simp del]
+
+lemma buildable_MAg[simp]: "buildable (MAg a) ms = (MAg a \<in> ms)"
+  by (simp add: buildable.simps)
+lemma buildable_MNon[simp]: "buildable (MNon a) ms = (MNon a \<in> ms)"
+  by (simp add: buildable.simps)
+lemma buildable_MK[simp]: "buildable (MK a) ms = (MK a \<in> ms)"
+  by (simp add: buildable.simps)
+lemma buildable_MPair[simp]:
+  "buildable (MPair m1 m2) ms = (MPair m1 m2 \<in> ms \<or> (buildable m1 ms \<and> buildable m2 ms))"
+  by (simp add: buildable.simps)
+lemma buildable_MAEnc[simp]:
+  "buildable (MAEnc m k) ms = (MAEnc m k \<in> ms \<or> (buildable m ms \<and> buildable k ms))"
+  by (simp add: buildable.simps)
+lemma buildable_MSig[simp]:
+  "buildable (MSig m k) ms = (MSig m k \<in> ms \<or> (buildable m ms \<and> buildable k ms))"
+  by (simp add: buildable.simps)
+lemma buildable_MSEnc[simp]:
+  "buildable (MSEnc m k) ms = (MSEnc m k \<in> ms \<or> (buildable m ms \<and> buildable k ms))"
+  by (simp add: buildable.simps)
+lemma buildable_MExpg[simp]: "buildable (MExpg a) ms = (MExpg a \<in> ms)"
+  by (simp add: buildable.simps)
+lemma buildable_MModExp[simp]:
+  "buildable (MModExp m k) ms = (MModExp m k \<in> ms \<or> (buildable m ms \<and> buildable k ms))"
+  by (simp add: buildable.simps)
+lemma buildable_MBitm[simp]: "buildable (MBitm b) ms = (MBitm b \<in> ms)"
+  by (simp add: buildable.simps)
+lemma buildable_MWat[simp]:
+  "buildable (MWat m k) ms = (MWat m k \<in> ms \<or> (buildable m ms \<and> buildable k ms))"
+  by (simp add: buildable.simps)
+lemma buildable_MJam[simp]: "buildable (MJam m k) ms = (MJam m k \<in> ms)"
+  by (simp add: buildable.simps)
+
+subsubsection \<open> Declarative inference relations \<close>
+
+text \<open> Table 3 of the accompanying paper states the intruder's inference rules in a rule style,
+whereas @{text break_lst} and @{text buildable} implement them. To relate the two we record the
+rules as inductive relations over the intruder's knowledge @{text K}: @{text "K \<turnstile>\<^sub>\<Down> m"} for
+the breakdown rules and @{text "K \<turnstile>\<^sub>\<Up> m"} for the build-up rules. The names of the rules
+(@{text Mb}, @{text Up}, @{text Dec}, @{text Ver}, @{text Wat1}, @{text Jam}, @{text Dh}, @{text Pa},
+@{text Enc}, @{text Sig}, @{text SDec}, @{text Wat2}, @{text Jam2}, @{text Ex}) follow the table. The
+premises of a rule are stated in terms of the relation itself, so that the closure is computed
+over knowledge that the intruder has already derived, as in the implementation. \<close>
+
+inductive
+  breakdown :: "('a::len, 'n::len, 'k::len, 'k::len, 'g::len, 'bm::len, 'bl::len) dmsg set
+                \<Rightarrow> ('a::len, 'n::len, 'k::len, 'k::len, 'g::len, 'bm::len, 'bl::len) dmsg \<Rightarrow> bool"
+  ("_ \<turnstile>\<^sub>\<Down> _" [50, 50] 50)
+where
+  Mb_break: "m \<in> K \<Longrightarrow> K \<turnstile>\<^sub>\<Down> m" |
+  Up_break1: "K \<turnstile>\<^sub>\<Down> MPair m1 m2 \<Longrightarrow> K \<turnstile>\<^sub>\<Down> m1" |
+  Up_break2: "K \<turnstile>\<^sub>\<Down> MPair m1 m2 \<Longrightarrow> K \<turnstile>\<^sub>\<Down> m2" |
+  Dec_break: "\<lbrakk> K \<turnstile>\<^sub>\<Down> MAEnc m (MK (Kp k)); K \<turnstile>\<^sub>\<Down> MK (Ks k) \<rbrakk> \<Longrightarrow> K \<turnstile>\<^sub>\<Down> m" |
+  Ver_break: "\<lbrakk> K \<turnstile>\<^sub>\<Down> MSig m (MK (Ks k)); K \<turnstile>\<^sub>\<Down> MK (Kp k) \<rbrakk> \<Longrightarrow> K \<turnstile>\<^sub>\<Down> m" |
+  SDec_break: "\<lbrakk> K \<turnstile>\<^sub>\<Down> MSEnc m (MK (Ks k)); K \<turnstile>\<^sub>\<Down> MK (Ks k) \<rbrakk> \<Longrightarrow> K \<turnstile>\<^sub>\<Down> m" |
+  Wat1_break: "K \<turnstile>\<^sub>\<Down> MWat m b \<Longrightarrow> K \<turnstile>\<^sub>\<Down> m" |
+  Jam_break: "\<lbrakk> K \<turnstile>\<^sub>\<Down> MJam (MWat m (MBitm (bb :: ('bm, 'bl) dbitmask))) (MBitm (b :: ('bm, 'bl) dbitmask));
+                b = (Null :: ('bm, 'bl) dbitmask) \<or> (b \<le> bb \<and> K \<turnstile>\<^sub>\<Down> MBitm b) \<rbrakk> \<Longrightarrow> K \<turnstile>\<^sub>\<Down> m" |
+  Dh_break1: "\<lbrakk> K \<turnstile>\<^sub>\<Down> MSEnc m (MModExp (MModExp (MExpg gn) a) b);
+               K \<turnstile>\<^sub>\<Down> MModExp (MExpg gn) a; K \<turnstile>\<^sub>\<Down> b \<rbrakk> \<Longrightarrow> K \<turnstile>\<^sub>\<Down> m" |
+  Dh_break2: "\<lbrakk> K \<turnstile>\<^sub>\<Down> MSEnc m (MModExp (MModExp (MExpg gn) a) b);
+               K \<turnstile>\<^sub>\<Down> MModExp (MExpg gn) b; K \<turnstile>\<^sub>\<Down> a \<rbrakk> \<Longrightarrow> K \<turnstile>\<^sub>\<Down> m" |
+  Dh_break3: "\<lbrakk> K \<turnstile>\<^sub>\<Down> MSEnc m (MModExp (MModExp (MExpg gn) a) b);
+               K \<turnstile>\<^sub>\<Down> MExpg gn; K \<turnstile>\<^sub>\<Down> a; K \<turnstile>\<^sub>\<Down> b \<rbrakk> \<Longrightarrow> K \<turnstile>\<^sub>\<Down> m"
+
+inductive
+  buildup :: "('a::len, 'n::len, 'k::len, 's::len, 'g::len, 'bm::len, 'bl::len) dmsg set
+              \<Rightarrow> ('a::len, 'n::len, 'k::len, 's::len, 'g::len, 'bm::len, 'bl::len) dmsg \<Rightarrow> bool"
+  ("_ \<turnstile>\<^sub>\<Up> _" [50, 50] 50)
+where
+  Mb_build: "m \<in> K \<Longrightarrow> K \<turnstile>\<^sub>\<Up> m" |
+  Pa_build: "\<lbrakk> K \<turnstile>\<^sub>\<Up> m1; K \<turnstile>\<^sub>\<Up> m2 \<rbrakk> \<Longrightarrow> K \<turnstile>\<^sub>\<Up> MPair m1 m2" |
+  Enc_build: "\<lbrakk> K \<turnstile>\<^sub>\<Up> m; K \<turnstile>\<^sub>\<Up> k \<rbrakk> \<Longrightarrow> K \<turnstile>\<^sub>\<Up> MAEnc m k" |
+  Sig_build: "\<lbrakk> K \<turnstile>\<^sub>\<Up> m; K \<turnstile>\<^sub>\<Up> k \<rbrakk> \<Longrightarrow> K \<turnstile>\<^sub>\<Up> MSig m k" |
+  SEnc_build: "\<lbrakk> K \<turnstile>\<^sub>\<Up> m; K \<turnstile>\<^sub>\<Up> k \<rbrakk> \<Longrightarrow> K \<turnstile>\<^sub>\<Up> MSEnc m k" |
+  Ex_build: "\<lbrakk> K \<turnstile>\<^sub>\<Up> m; K \<turnstile>\<^sub>\<Up> e \<rbrakk> \<Longrightarrow> K \<turnstile>\<^sub>\<Up> MModExp m e" |
+  Wat2_build: "\<lbrakk> K \<turnstile>\<^sub>\<Up> m; K \<turnstile>\<^sub>\<Up> b \<rbrakk> \<Longrightarrow> K \<turnstile>\<^sub>\<Up> MWat m b"
+
+text \<open> The build-up relation is exactly the predicate @{text buildable}: the two are the same
+least fixed point, which is what relates the right-hand column of the table to the function that
+the intruder process uses to choose the messages she sends. \<close>
+
+lemma buildup_buildable: "K \<turnstile>\<^sub>\<Up> m \<longleftrightarrow> buildable m K"
+proof
+  assume "K \<turnstile>\<^sub>\<Up> m"
+  then show "buildable m K" by (induct) (auto simp: buildable.simps)
+next
+  assume "buildable m K"
+  then show "K \<turnstile>\<^sub>\<Up> m" by (induct m) (auto intro: buildup.intros)
+qed
+
+text \<open> Two remarks on how the relations correspond to the implementation, both of which are
+visible in the equations of @{text break_lst}. First, the equation for @{text MJam} recovers the
+jammed message as soon as the jamming bitmask is known or empty, without requiring the jammed
+message to be a watermark that the bitmask prefixes; rule @{text Jam_break} therefore generalises
+the entry of the table, whose premise is the prefix test performed by the receiver. Second, the
+equation for @{text MPair} keeps the closures of the two components but not the pair itself, so the
+pair is recovered through the build-up rule @{text Pa_build} rather than through @{text Up}. The
+type variable duplicated in the signature of @{text breakdown} mirrors the signature of
+@{text break_lst}, where public and private keys share one index space. \<close>
+
+subsubsection \<open> Closure laws \<close>
+
+text \<open> Elementary properties of the saturation loop: it retains its argument, it is extensive
+in the number of rounds, and every round is monotone in the sub-term closure. \<close>
+
+lemma iter_closure_fix: "step_once K = K \<Longrightarrow> iter_closure n K = K"
+  by (induct n) auto
+
+lemma step_once_extensive: "set K \<subseteq> set (step_once K)"
+  by (auto simp: step_once_def)
+
+lemma iter_closure_extensive: "set K \<subseteq> set (iter_closure n K)"
+proof (induct n arbitrary: K)
+  case 0
+  then show ?case by simp
+next
+  case (Suc n)
+  have h1: "set K \<subseteq> set (step_once K)" by (rule step_once_extensive)
+  have h2: "set (step_once K) \<subseteq> set (iter_closure n (step_once K))" by (rule Suc)
+  show ?case using subset_trans[OF h1 h2] by simp
+qed
+
+lemma breakl_extensive: "set xs \<subseteq> set (breakl xs)"
+  unfolding breakl_def
+  using iter_closure_extensive[of "remdups xs" "List.length (submsgs_list xs) + 1"]
+  by (simp add: set_remdups)
+
+lemma step_once_subset_iter_Suc: "set (step_once K) \<subseteq> set (iter_closure (Suc n) K)"
+  using iter_closure_extensive[of "step_once K" n] by simp
+
+subsubsection \<open> Soundness of the implementation \<close>
+
+text \<open> The closure @{text breakl} derives only messages derivable by the breakdown rules of the
+table. A round of @{text step_once} adds the immediate consequences of the messages already known,
+so it suffices to check that @{text one_step} implements one rule application: whenever the side
+conditions of a case hold, the conclusion of the corresponding rule follows from the message and
+the messages already in the accumulator. \<close>
+
+lemma one_step_sound:
+  fixes K0 :: "('a::len, 'n::len, 'k::len, 'k::len, 'g::len, 'bm::len, 'bl::len) dmsg set"
+  assumes hK: "K \<subseteq> {m. K0 \<turnstile>\<^sub>\<Down> m}" and hm: "K0 \<turnstile>\<^sub>\<Down> m"
+  shows "set (one_step m K) \<subseteq> {m. K0 \<turnstile>\<^sub>\<Down> m}"
+  using assms
+proof (cases m)
+  case (MAg a)
+  then show ?thesis by (simp add: one_step.simps)
+next
+  case (MNon a)
+  then show ?thesis by (simp add: one_step.simps)
+next
+  case (MK k)
+  then show ?thesis by (simp add: one_step.simps)
+next
+  case (MPair m1 m2)
+  then show ?thesis using hm by (auto simp: one_step.simps intro: Up_break1 Up_break2)
+next
+  case (MAEnc m' k)
+  then show ?thesis
+  proof (cases k)
+    case (MK k')
+    then show ?thesis using hm MAEnc
+      by (cases k'; auto simp: one_step.simps intro: Dec_break dest: subsetD[OF hK])
+  qed (simp_all add: one_step.simps)
+next
+  case (MSig m' k)
+  then show ?thesis
+  proof (cases k)
+    case (MK k')
+    then show ?thesis using hm MSig
+      by (cases k'; auto simp: one_step.simps intro: Ver_break dest: subsetD[OF hK])
+  qed (simp_all add: one_step.simps)
+next
+  case (MSEnc m' k)
+  note hmk = \<open>m = MSEnc m' k\<close>
+  then show ?thesis using hm
+  proof (cases k)
+    case (MK k')
+    note hk = \<open>k = MK k'\<close>
+    then show ?thesis using hm
+      by (cases k'; auto simp: one_step.simps hmk hk intro: SDec_break dest: subsetD[OF hK])
+  next
+    case (MModExp k1 k2)
+    note hk = \<open>k = MModExp k1 k2\<close>
+    then show ?thesis using hm
+    proof (cases k1)
+      case (MModExp k11 k12)
+      note hk1 = \<open>k1 = MModExp k11 k12\<close>
+      then show ?thesis using hm
+      proof (cases k11)
+        case (MExpg gn)
+        then show ?thesis using hm
+          by (auto simp: one_step.simps hmk hk hk1 \<open>k11 = MExpg gn\<close>
+                   intro: Dh_break1 Dh_break2 Dh_break3 dest: subsetD[OF hK])
+      qed (auto simp: one_step.simps hmk hk hk1)
+    qed (auto simp: one_step.simps hmk hk)
+  qed (auto simp: one_step.simps hmk)
+next
+  case (MExpg a)
+  then show ?thesis by (simp add: one_step.simps)
+next
+  case (MModExp m' k)
+  then show ?thesis by (simp add: one_step.simps)
+next
+  case (MBitm b)
+  then show ?thesis by (simp add: one_step.simps)
+next
+  case (MWat m' b)
+  then show ?thesis using hm by (auto simp: one_step.simps intro: Wat1_break)
+next
+  case (MJam m' k)
+  then show ?thesis
+  proof (cases k)
+    case (MBitm b)
+    then show ?thesis using hm MJam
+    proof (cases m')
+      case (MWat m'' k2)
+      then show ?thesis using hm MJam MBitm
+      proof (cases k2)
+        case (MBitm bb)
+        then show ?thesis using hm MJam MBitm MWat
+          by (auto simp: one_step.simps intro: Jam_break dest: subsetD[OF hK])
+      qed (simp_all add: one_step.simps)
+    qed (simp_all add: one_step.simps)
+  qed (simp_all add: one_step.simps)
+qed
+
+lemma step_once_sound:
+  fixes K0 :: "('a::len, 'n::len, 'k::len, 'k::len, 'g::len, 'bm::len, 'bl::len) dmsg set"
+  assumes hK: "set K \<subseteq> {m. K0 \<turnstile>\<^sub>\<Down> m}"
+  shows "set (step_once K) \<subseteq> {m. K0 \<turnstile>\<^sub>\<Down> m}"
+proof
+  fix m
+  assume hm: "m \<in> set (step_once K)"
+  have step: "m \<in> set K \<or> (\<exists>x\<in>set K. m \<in> set (one_step x (set K)))"
+    using hm by (auto simp: step_once_def)
+  from step show "m \<in> {m. K0 \<turnstile>\<^sub>\<Down> m}"
+  proof (rule disjE)
+    assume hmK: "m \<in> set K"
+    from subsetD[OF hK hmK] show "m \<in> {m. K0 \<turnstile>\<^sub>\<Down> m}" .
+  next
+    assume "\<exists>x\<in>set K. m \<in> set (one_step x (set K))"
+    then obtain x where hx: "x \<in> set K" and hmx: "m \<in> set (one_step x (set K))" by auto
+    from subsetD[OF hK hx] have hxK: "K0 \<turnstile>\<^sub>\<Down> x" by simp
+    from one_step_sound[OF hK hxK] have "set (one_step x (set K)) \<subseteq> {m. K0 \<turnstile>\<^sub>\<Down> m}" .
+    from subsetD[OF this hmx] show "m \<in> {m. K0 \<turnstile>\<^sub>\<Down> m}" .
+  qed
+qed
+
+lemma iter_closure_sound:
+  fixes K0 :: "('a::len, 'n::len, 'k::len, 'k::len, 'g::len, 'bm::len, 'bl::len) dmsg set"
+  shows "\<And>K. set K \<subseteq> {m. K0 \<turnstile>\<^sub>\<Down> m} \<Longrightarrow> set (iter_closure n K) \<subseteq> {m. K0 \<turnstile>\<^sub>\<Down> m}"
+proof (induct n)
+  case 0
+  then show ?case by simp
+next
+  case (Suc n)
+  have h: "set (step_once K) \<subseteq> {m. K0 \<turnstile>\<^sub>\<Down> m}" using Suc.prems by (rule step_once_sound)
+  from Suc.hyps(1)[OF h] show ?case by simp
+qed
+
+lemma breakl_sound: "set (breakl xs) \<subseteq> {m. set xs \<turnstile>\<^sub>\<Down> m}"
+proof -
+  have h: "set (remdups xs) \<subseteq> {m. set xs \<turnstile>\<^sub>\<Down> m}" by (auto intro: breakdown.intros)
+  have h2: "set (step_once (remdups xs)) \<subseteq> {m. set xs \<turnstile>\<^sub>\<Down> m}"
+    using h by (rule step_once_sound)
+  have h3: "set (iter_closure (List.length (submsgs_list xs)) (step_once (remdups xs)))
+            \<subseteq> {m. set xs \<turnstile>\<^sub>\<Down> m}"
+    using iter_closure_sound[OF h2] .
+  have "set (breakl xs) = set (iter_closure (List.length (submsgs_list xs)) (step_once (remdups xs)))"
+    by (simp add: breakl_def)
+  with h3 show ?thesis by simp
+qed
+
+subsubsection \<open> Completeness of the implementation \<close>
+
+text \<open> Conversely every message that the rules derive occurs in the closure. Since @{text step_once}
+retains its argument it suffices to show that the closure is stable, i.e. that after enough rounds
+no new message appears. Every message produced by @{text one_step} is a sub-term of the message it
+is applied to, so all rounds stay inside the sub-term closure of the input, and @{text breakl}
+performs as many rounds as that closure has elements. \<close>
+
+lemma submsg_list_self: "m \<in> set (submsg_list m)"
+  by (induct m) auto
+
+lemma submsg_list_mono:
+  "m' \<in> set (submsg_list m) \<Longrightarrow> set (submsg_list m') \<subseteq> set (submsg_list m)"
+  by (induct m) auto
+
+lemma one_step_subterms: "set (one_step m K) \<subseteq> set (submsg_list m)"
+proof (cases m)
+  case (MAg a)
+  then show ?thesis by (simp add: one_step.simps)
+next
+  case (MNon a)
+  then show ?thesis by (simp add: one_step.simps)
+next
+  case (MK k)
+  then show ?thesis by (simp add: one_step.simps)
+next
+  case (MPair m1 m2)
+  then show ?thesis by (auto simp: one_step.simps submsg_list_self)
+next
+  case (MAEnc m' k)
+  note hm = \<open>m = MAEnc m' k\<close>
+  then show ?thesis
+  proof (cases k)
+    case (MK k')
+    then show ?thesis using MAEnc
+      by (cases k'; auto simp: one_step.simps submsg_list_self hm \<open>k = MK k'\<close>)
+  qed (auto simp: one_step.simps hm)
+next
+  case (MSig m' k)
+  note hm = \<open>m = MSig m' k\<close>
+  then show ?thesis
+  proof (cases k)
+    case (MK k')
+    then show ?thesis using MSig
+      by (cases k'; auto simp: one_step.simps submsg_list_self hm \<open>k = MK k'\<close>)
+  qed (auto simp: one_step.simps hm)
+next
+  case (MSEnc m' k)
+  note hm = \<open>m = MSEnc m' k\<close>
+  then show ?thesis
+  proof (cases k)
+    case (MK k')
+    then show ?thesis using MSEnc
+      by (cases k'; auto simp: one_step.simps submsg_list_self hm \<open>k = MK k'\<close>)
+  next
+    case (MModExp k1 k2)
+    note hk = \<open>k = MModExp k1 k2\<close>
+    then show ?thesis using MSEnc
+    proof (cases k1)
+      case (MModExp k11 k12)
+      note hk1 = \<open>k1 = MModExp k11 k12\<close>
+      then show ?thesis using MSEnc MModExp
+      proof (cases k11)
+        case (MExpg gn)
+        then show ?thesis using MSEnc MModExp MModExp MExpg
+          by (auto simp: one_step.simps submsg_list_self hm hk hk1 \<open>k11 = MExpg gn\<close>)
+      qed (auto simp: one_step.simps hm hk hk1)
+    qed (auto simp: one_step.simps hm hk)
+  qed (auto simp: one_step.simps hm)
+next
+  case (MExpg a)
+  then show ?thesis by (simp add: one_step.simps)
+next
+  case (MModExp m' k)
+  then show ?thesis by (simp add: one_step.simps)
+next
+  case (MBitm b)
+  then show ?thesis by (simp add: one_step.simps)
+next
+  case (MWat m' b)
+  then show ?thesis by (auto simp: one_step.simps submsg_list_self)
+next
+  case (MJam m' k)
+  note hm = \<open>m = MJam m' k\<close>
+  then show ?thesis
+  proof (cases k)
+    case (MBitm b)
+    note hk = \<open>k = MBitm b\<close>
+    then show ?thesis using MJam
+    proof (cases m')
+      case (MWat m'' k2)
+      note hm' = \<open>m' = MWat m'' k2\<close>
+      then show ?thesis using MJam MBitm
+      proof (cases k2)
+        case (MBitm bb)
+        then show ?thesis using MJam MBitm MWat
+          by (auto simp: one_step.simps submsg_list_self hm hk hm' \<open>k2 = MBitm bb\<close>)
+      qed (auto simp: one_step.simps hm hk hm')
+    qed (auto simp: one_step.simps hm hk)
+  qed (auto simp: one_step.simps hm)
+qed
+
+lemma submsgs_list_closed:
+  "m \<in> set (submsgs_list xs) \<Longrightarrow> set (submsg_list m) \<subseteq> set (submsgs_list xs)"
+proof -
+  assume "m \<in> set (submsgs_list xs)"
+  then obtain x where hx: "x \<in> set xs" and hm: "m \<in> set (submsg_list x)"
+    by (auto simp: submsgs_list_def)
+  have "set (submsg_list m) \<subseteq> set (submsg_list x)" using hm by (rule submsg_list_mono)
+  also have "\<dots> \<subseteq> set (submsgs_list xs)" using hx by (auto simp: submsgs_list_def)
+  finally show ?thesis .
+qed
+
+lemma step_once_subterms:
+  assumes h: "set K \<subseteq> set (submsgs_list xs)"
+  shows "set (step_once K) \<subseteq> set (submsgs_list xs)"
+proof
+  fix x
+  assume hx: "x \<in> set (step_once K)"
+  have step: "x \<in> set K \<or> (\<exists>m\<in>set K. x \<in> set (one_step m (set K)))"
+    using hx by (auto simp: step_once_def)
+  from step show "x \<in> set (submsgs_list xs)"
+  proof (rule disjE)
+    assume "x \<in> set K"
+    with h show "x \<in> set (submsgs_list xs)" by (rule subsetD)
+  next
+    assume "\<exists>m\<in>set K. x \<in> set (one_step m (set K))"
+    then obtain m where hm: "m \<in> set K" and hx2: "x \<in> set (one_step m (set K))" by auto
+    from h hm have hmS: "m \<in> set (submsgs_list xs)" by (rule subsetD)
+    have hxsub: "x \<in> set (submsg_list m)" using hx2 by (rule subsetD[OF one_step_subterms])
+    from submsgs_list_closed[OF hmS] hxsub show "x \<in> set (submsgs_list xs)" by (rule subsetD)
+  qed
+qed
+
+definition "cstep S = S \<union> (\<Union>x\<in>S. set (one_step x S))"
+
+lemma set_step_once: "set (step_once K) = cstep (set K)"
+  by (auto simp: step_once_def cstep_def)
+
+lemma iter_closure_Suc: "iter_closure (Suc n) K = step_once (iter_closure n K)"
+proof (induct n arbitrary: K)
+  case 0
+  then show ?case by simp
+next
+  case (Suc n)
+  show ?case using Suc.hyps(1)[of "step_once K"] by simp
+qed
+
+lemma iter_closure_set_Suc:
+  "set (iter_closure (Suc n) K) = cstep (set (iter_closure n K))"
+  by (metis iter_closure_Suc set_step_once)
+
+lemma set_iter_closure: "set (iter_closure n K) = (cstep ^^ n) (set K)"
+proof (induct n)
+  case 0
+  then show ?case by simp
+next
+  case (Suc n)
+  have ih: "set (iter_closure n K) = (cstep ^^ n) (set K)" using Suc.hyps(1) .
+  have "set (iter_closure (Suc n) K) = cstep (set (iter_closure n K))"
+    by (rule iter_closure_set_Suc)
+  also have "\<dots> = cstep ((cstep ^^ n) (set K))" by (simp add: ih)
+  also have "\<dots> = (cstep ^^ Suc n) (set K)" by simp
+  finally show ?case .
+qed
+
+lemma cstep_extensive: "S \<subseteq> cstep S"
+  by (auto simp: cstep_def)
+
+lemma cstep_subterms:
+  assumes h: "S \<subseteq> set (submsgs_list xs)"
+  shows "cstep S \<subseteq> set (submsgs_list xs)"
+proof
+  fix x
+  assume hx: "x \<in> cstep S"
+  have "x \<in> S \<or> (\<exists>m\<in>S. x \<in> set (one_step m S))" using hx by (auto simp: cstep_def)
+  then show "x \<in> set (submsgs_list xs)"
+  proof (rule disjE)
+    assume "x \<in> S"
+    with h show "x \<in> set (submsgs_list xs)" by (rule subsetD)
+  next
+    assume "\<exists>m\<in>S. x \<in> set (one_step m S)"
+    then obtain m where hm: "m \<in> S" and hx2: "x \<in> set (one_step m S)" by auto
+    from h hm have hmS: "m \<in> set (submsgs_list xs)" by (rule subsetD)
+    have hxsub: "x \<in> set (submsg_list m)" using hx2 by (rule subsetD[OF one_step_subterms])
+    from submsgs_list_closed[OF hmS] hxsub show "x \<in> set (submsgs_list xs)" by (rule subsetD)
+  qed
+qed
+
+lemma cstep_chain:
+  assumes h: "S \<subseteq> set (submsgs_list xs)"
+  shows "(cstep ^^ n) S \<subseteq> set (submsgs_list xs)"
+  using h
+proof (induct n arbitrary: S)
+  case 0
+  then show ?case by simp
+next
+  case (Suc n)
+  have "cstep ((cstep ^^ n) S) \<subseteq> set (submsgs_list xs)"
+    using cstep_subterms[OF Suc.hyps(1)[OF Suc.prems]] .
+  then show ?case by simp
+qed
+
+lemma cstep_fixed: "cstep X = X \<Longrightarrow> (cstep ^^ n) X = X"
+  by (induct n) auto
+
+lemma cstep_card_growth:
+  assumes hS: "S \<subseteq> set (submsgs_list xs)"
+  shows "(\<And>i. i < n \<Longrightarrow> cstep ((cstep ^^ i) S) \<noteq> (cstep ^^ i) S)
+         \<Longrightarrow> card S + n \<le> card ((cstep ^^ n) S)"
+proof (induct n)
+  case 0
+  then show ?case by simp
+next
+  case (Suc n)
+  have ih: "card S + n \<le> card ((cstep ^^ n) S)"
+  proof (rule Suc.hyps)
+    fix i assume "i < n"
+    with Suc.prems show "cstep ((cstep ^^ i) S) \<noteq> (cstep ^^ i) S" by simp
+  qed
+  have sub: "(cstep ^^ n) S \<subseteq> cstep ((cstep ^^ n) S)" by (rule cstep_extensive)
+  have ne: "cstep ((cstep ^^ n) S) \<noteq> (cstep ^^ n) S" using Suc.prems by simp
+  have chain: "cstep ((cstep ^^ n) S) \<subseteq> set (submsgs_list xs)"
+    using cstep_chain[OF hS, of "Suc n"] by simp
+  have fin: "finite (cstep ((cstep ^^ n) S))" using chain by (rule finite_subset) simp
+  have "card ((cstep ^^ n) S) \<noteq> card (cstep ((cstep ^^ n) S))"
+  proof
+    assume eq: "card ((cstep ^^ n) S) = card (cstep ((cstep ^^ n) S))"
+    from card_seteq[OF fin sub] eq have "(cstep ^^ n) S = cstep ((cstep ^^ n) S)" by simp
+    with ne show False by simp
+  qed
+  moreover have "card ((cstep ^^ n) S) \<le> card (cstep ((cstep ^^ n) S))"
+    by (rule card_mono[OF fin sub])
+  ultimately have "card ((cstep ^^ n) S) < card (cstep ((cstep ^^ n) S))" by simp
+  with ih show ?case by simp
+qed
+
+lemma cstep_eventually_stable:
+  assumes hS: "S \<subseteq> set (submsgs_list xs)"
+  shows "cstep ((cstep ^^ List.length (submsgs_list xs)) S) = (cstep ^^ List.length (submsgs_list xs)) S"
+proof (rule ccontr)
+  let ?B = "List.length (submsgs_list xs)"
+  assume hne: "cstep ((cstep ^^ ?B) S) \<noteq> (cstep ^^ ?B) S"
+  have h1: "card S + (?B + 1) \<le> card ((cstep ^^ (?B + 1)) S)"
+  proof (rule cstep_card_growth[OF hS])
+    fix i assume hi: "i < ?B + 1"
+    show "cstep ((cstep ^^ i) S) \<noteq> (cstep ^^ i) S"
+    proof
+      assume eq: "cstep ((cstep ^^ i) S) = (cstep ^^ i) S"
+      have hprop: "\<And>k. (cstep ^^ k) ((cstep ^^ i) S) = (cstep ^^ i) S"
+        by (rule cstep_fixed[OF eq])
+      have "i \<le> ?B" using hi by simp
+      then have "(cstep ^^ ?B) S = (cstep ^^ ((?B - i) + i)) S" by simp
+      also have "\<dots> = (cstep ^^ (?B - i)) ((cstep ^^ i) S)" by (simp add: funpow_add)
+      also have "\<dots> = (cstep ^^ i) S" using hprop by simp
+      finally have "(cstep ^^ ?B) S = (cstep ^^ i) S" .
+      with eq hne show False by simp
+    qed
+  qed
+  have h2: "card ((cstep ^^ (?B + 1)) S) \<le> card (set (submsgs_list xs))"
+  proof -
+    have sub2: "(cstep ^^ (?B + 1)) S \<subseteq> set (submsgs_list xs)"
+      using cstep_chain[OF hS, of "?B + 1"] .
+    have fin2: "finite (set (submsgs_list xs))" by simp
+    from card_mono[OF fin2 sub2] show ?thesis .
+  qed
+  have h3: "card (set (submsgs_list xs)) = ?B"
+  proof -
+    have d: "distinct (submsgs_list xs)" by (simp add: submsgs_list_def)
+    from distinct_card[OF d] show ?thesis by simp
+  qed
+  from h1 h2 h3 show False by simp
+qed
+
+lemma breakl_stable: "cstep (set (breakl xs)) = set (breakl xs)"
+proof -
+  let ?S = "set (remdups xs)"
+  let ?B = "List.length (submsgs_list xs)"
+  have hS: "?S \<subseteq> set (submsgs_list xs)" by (auto simp: submsgs_list_def submsg_list_self)
+  have fx: "cstep ((cstep ^^ ?B) ?S) = (cstep ^^ ?B) ?S"
+    by (rule cstep_eventually_stable[OF hS])
+  have bl: "set (breakl xs) = (cstep ^^ (?B + 1)) ?S"
+  proof -
+    have "set (breakl xs) = set (iter_closure (?B + 1) (remdups xs))" by (simp add: breakl_def)
+    also have "\<dots> = (cstep ^^ (?B + 1)) (set (remdups xs))" by (rule set_iter_closure)
+    finally show ?thesis .
+  qed
+  have c1: "cstep ((cstep ^^ (?B + 1)) ?S) = (cstep ^^ (?B + 1)) ?S"
+  proof -
+    have "(cstep ^^ (?B + 1)) ?S = cstep ((cstep ^^ ?B) ?S)"
+      by simp
+    with fx show ?thesis by simp
+  qed
+  from bl c1 show ?thesis by simp
+qed
+
+lemma cstep_Up1: "MPair m1 m2 \<in> S \<Longrightarrow> m1 \<in> cstep S"
+proof -
+  assume h: "MPair m1 m2 \<in> S"
+  have hstep: "m1 \<in> set (one_step (MPair m1 m2) S)" by (simp add: one_step.simps)
+  have "m1 \<in> (\<Union>x\<in>S. set (one_step x S))" using h hstep by blast
+  then show ?thesis by (auto simp: cstep_def)
+qed
+
+lemma cstep_Up2: "MPair m1 m2 \<in> S \<Longrightarrow> m2 \<in> cstep S"
+proof -
+  assume h: "MPair m1 m2 \<in> S"
+  have hstep: "m2 \<in> set (one_step (MPair m1 m2) S)" by (simp add: one_step.simps)
+  have "m2 \<in> (\<Union>x\<in>S. set (one_step x S))" using h hstep by blast
+  then show ?thesis by (auto simp: cstep_def)
+qed
+
+lemma cstep_Dec: "\<lbrakk> MAEnc m (MK (Kp k)) \<in> S; MK (Ks k) \<in> S \<rbrakk> \<Longrightarrow> m \<in> cstep S"
+proof -
+  assume h1: "MAEnc m (MK (Kp k)) \<in> S" and h2: "MK (Ks k) \<in> S"
+  have hstep: "m \<in> set (one_step (MAEnc m (MK (Kp k))) S)" using h2 by (simp add: one_step.simps)
+  have "m \<in> (\<Union>x\<in>S. set (one_step x S))" using h1 hstep by blast
+  then show ?thesis by (auto simp: cstep_def)
+qed
+
+lemma cstep_Ver: "\<lbrakk> MSig m (MK (Ks k)) \<in> S; MK (Kp k) \<in> S \<rbrakk> \<Longrightarrow> m \<in> cstep S"
+proof -
+  assume h1: "MSig m (MK (Ks k)) \<in> S" and h2: "MK (Kp k) \<in> S"
+  have hstep: "m \<in> set (one_step (MSig m (MK (Ks k))) S)" using h2 by (simp add: one_step.simps)
+  have "m \<in> (\<Union>x\<in>S. set (one_step x S))" using h1 hstep by blast
+  then show ?thesis by (auto simp: cstep_def)
+qed
+
+lemma cstep_SDec: "\<lbrakk> MSEnc m (MK (Ks k)) \<in> S; MK (Ks k) \<in> S \<rbrakk> \<Longrightarrow> m \<in> cstep S"
+proof -
+  assume h1: "MSEnc m (MK (Ks k)) \<in> S" and h2: "MK (Ks k) \<in> S"
+  have hstep: "m \<in> set (one_step (MSEnc m (MK (Ks k))) S)" using h2 by (simp add: one_step.simps)
+  have "m \<in> (\<Union>x\<in>S. set (one_step x S))" using h1 hstep by blast
+  then show ?thesis by (auto simp: cstep_def)
+qed
+
+lemma cstep_Wat1: "MWat m b \<in> S \<Longrightarrow> m \<in> cstep S"
+proof -
+  assume h: "MWat m b \<in> S"
+  have hstep: "m \<in> set (one_step (MWat m b) S)" by (simp add: one_step.simps)
+  have "m \<in> (\<Union>x\<in>S. set (one_step x S))" using h hstep by blast
+  then show ?thesis by (auto simp: cstep_def)
+qed
+
+lemma cstep_Jam:
+  "\<lbrakk> MJam (MWat m (MBitm bb)) (MBitm b) \<in> S;
+     b = Null \<or> (b \<le> bb \<and> MBitm b \<in> S) \<rbrakk> \<Longrightarrow> m \<in> cstep S"
+proof -
+  assume h1: "MJam (MWat m (MBitm bb)) (MBitm b) \<in> S"
+     and h2: "b = Null \<or> (b \<le> bb \<and> MBitm b \<in> S)"
+  have hstep: "m \<in> set (one_step (MJam (MWat m (MBitm bb)) (MBitm b)) S)"
+    using h2 by (simp add: one_step.simps)
+  have "m \<in> (\<Union>x\<in>S. set (one_step x S))" using h1 hstep by blast
+  then show ?thesis by (auto simp: cstep_def)
+qed
+
+lemma cstep_Dh1:
+  "\<lbrakk> MSEnc m (MModExp (MModExp (MExpg gn) a) b) \<in> S;
+     MModExp (MExpg gn) a \<in> S; b \<in> S \<rbrakk> \<Longrightarrow> m \<in> cstep S"
+proof -
+  assume h1: "MSEnc m (MModExp (MModExp (MExpg gn) a) b) \<in> S"
+     and h2: "MModExp (MExpg gn) a \<in> S" and h3: "b \<in> S"
+  have hstep: "m \<in> set (one_step (MSEnc m (MModExp (MModExp (MExpg gn) a) b)) S)"
+    using h2 h3 by (simp add: one_step.simps)
+  have "m \<in> (\<Union>x\<in>S. set (one_step x S))" using h1 hstep by blast
+  then show ?thesis by (auto simp: cstep_def)
+qed
+
+lemma cstep_Dh2:
+  "\<lbrakk> MSEnc m (MModExp (MModExp (MExpg gn) a) b) \<in> S;
+     MModExp (MExpg gn) b \<in> S; a \<in> S \<rbrakk> \<Longrightarrow> m \<in> cstep S"
+proof -
+  assume h1: "MSEnc m (MModExp (MModExp (MExpg gn) a) b) \<in> S"
+     and h2: "MModExp (MExpg gn) b \<in> S" and h3: "a \<in> S"
+  have hstep: "m \<in> set (one_step (MSEnc m (MModExp (MModExp (MExpg gn) a) b)) S)"
+    using h2 h3 by (simp add: one_step.simps)
+  have "m \<in> (\<Union>x\<in>S. set (one_step x S))" using h1 hstep by blast
+  then show ?thesis by (auto simp: cstep_def)
+qed
+
+lemma cstep_Dh3:
+  "\<lbrakk> MSEnc m (MModExp (MModExp (MExpg gn) a) b) \<in> S;
+     MExpg gn \<in> S; a \<in> S; b \<in> S \<rbrakk> \<Longrightarrow> m \<in> cstep S"
+proof -
+  assume h1: "MSEnc m (MModExp (MModExp (MExpg gn) a) b) \<in> S"
+     and h2: "MExpg gn \<in> S" and h3: "a \<in> S" and h4: "b \<in> S"
+  have hstep: "m \<in> set (one_step (MSEnc m (MModExp (MModExp (MExpg gn) a) b)) S)"
+    using h2 h3 h4 by (simp add: one_step.simps)
+  have "m \<in> (\<Union>x\<in>S. set (one_step x S))" using h1 hstep by blast
+  then show ?thesis by (auto simp: cstep_def)
+qed
+
+lemma breakl_complete: "set xs \<turnstile>\<^sub>\<Down> m \<Longrightarrow> m \<in> set (breakl xs)"
+proof -
+  let ?S = "set (breakl xs)"
+  have fx: "cstep ?S = ?S" by (rule breakl_stable)
+  have gen: "K \<subseteq> ?S \<Longrightarrow> K \<turnstile>\<^sub>\<Down> m \<Longrightarrow> m \<in> ?S" for K
+  proof -
+    assume sub: "K \<subseteq> ?S"
+    assume d: "K \<turnstile>\<^sub>\<Down> m"
+    from d sub show "m \<in> ?S"
+    proof (induct rule: breakdown.induct)
+      case (Mb_break m)
+      with sub show ?case by blast
+    next
+      case Up_break1
+      with cstep_Up1 fx show ?case by blast
+    next
+      case Up_break2
+      with cstep_Up2 fx show ?case by blast
+    next
+      case Dec_break
+      with cstep_Dec fx show ?case by blast
+    next
+      case Ver_break
+      with cstep_Ver fx show ?case by blast
+    next
+      case SDec_break
+      with cstep_SDec fx show ?case by blast
+    next
+      case Wat1_break
+      with cstep_Wat1 fx show ?case by blast
+    next
+      case Jam_break
+      with cstep_Jam fx show ?case by blast
+    next
+      case Dh_break1
+      with cstep_Dh1 fx show ?case by blast
+    next
+      case Dh_break2
+      with cstep_Dh2 fx show ?case by blast
+    next
+      case Dh_break3
+      with cstep_Dh3 fx show ?case by blast
+    qed
+  qed
+  have base: "set xs \<subseteq> ?S" by (rule breakl_extensive)
+  assume h: "set xs \<turnstile>\<^sub>\<Down> m"
+  from gen[OF base] h show ?thesis by simp
+qed
+
+subsubsection \<open> Monotonicity \<close>
+
+text \<open> Monotonicity of the implementation mirrors monotonicity of the declarative relations.
+On the build-up side this is @{text buildable_mono}; on the breakdown side @{text breakdown_mono}
+is the rule-level statement and @{text breakl_mono} its counterpart for the closure, obtained
+from soundness and completeness. \<close>
+
+lemma buildable_mono:
+  "ms \<subseteq> ms' \<Longrightarrow> buildable m ms \<Longrightarrow> buildable m ms'"
+  by (induct m) (auto dest: subsetD)
+
+lemma filter_buildable_mono:
+  "ms \<subseteq> ms' \<Longrightarrow> set (filter_buildable xs ms) \<subseteq> set (filter_buildable xs ms')"
+  by (auto simp: filter_buildable_def intro: buildable_mono)
+
+text \<open> On the breakdown side the knowledge that drives the rules (member, unpairing,
+decryption, digital verify, watermarking, and jamming) is the set of atomic parts extracted from
+the messages the intruder has heard, and that extraction is monotone in the messages. So enlarging
+@{text xs} enlarges the set of keys and bitmasks against which the decryption, verification, and
+dejamming tests are evaluated, and it cannot invalidate a prefix test such as @{text "b \<le> bb"}
+because that test does not depend on the messages at all. \<close>
+
+lemma atomics_mono: "set xs \<subseteq> set xs' \<Longrightarrow> set (atomics xs) \<subseteq> set (atomics xs')"
+  by (auto simp add: atomics_def)
+
+text \<open> Both declarative relations are monotone in the intruder's knowledge as well. The build-up
+side reduces to @{text buildable_mono}; the breakdown side has no implementation counterpart here,
+so it is proved from the rules themselves. \<close>
+
+lemma buildup_mono: "K \<subseteq> K' \<Longrightarrow> K \<turnstile>\<^sub>\<Up> m \<Longrightarrow> K' \<turnstile>\<^sub>\<Up> m"
+  by (simp add: buildup_buildable) (blast intro: buildable_mono)
+
+lemma breakdown_mono: "K \<subseteq> K' \<Longrightarrow> K \<turnstile>\<^sub>\<Down> m \<Longrightarrow> K' \<turnstile>\<^sub>\<Down> m"
+proof -
+  assume sub: "K \<subseteq> K'"
+  assume d: "K \<turnstile>\<^sub>\<Down> m"
+  from d sub show ?thesis
+    by (induct rule: breakdown.induct) (auto intro: breakdown.intros)
+qed
+
+text \<open> Monotonicity of the closure in the messages the intruder has heard is now immediate: it
+is the composite of soundness, monotonicity of the declarative relation, and completeness. \<close>
+
+lemma breakl_mono: "set xs \<subseteq> set ys \<Longrightarrow> set (breakl xs) \<subseteq> set (breakl ys)"
+proof (rule subsetI)
+  fix m
+  assume hsub: "set xs \<subseteq> set ys" and hm: "m \<in> set (breakl xs)"
+  from subsetD[OF breakl_sound hm] have h1: "set xs \<turnstile>\<^sub>\<Down> m" by simp
+  from breakdown_mono[OF hsub h1] have h2: "set ys \<turnstile>\<^sub>\<Down> m" .
+  from breakl_complete[OF h2] show "m \<in> set (breakl ys)" .
+qed
+
+subsubsection \<open> Watermark injectivity and non-forgeability \<close>
+
+text \<open> Watermarking and jamming are injective (facts @{text MWat_inj_eq} and @{text MJam_inj_eq}).
+Consequently, for a message that the intruder has not heard (@{text "MWat m b \<notin> ms"}), she can
+only build @{text "MWat m b"} if she can already build the bitmask @{text b}: this is the symbolic
+content of the non-forgeability discipline (rule Wat2 needs the bitmask). \<close>
+
+lemma MWat_inj_eq: "MWat m b = MWat m' b' \<longleftrightarrow> m = m' \<and> b = b'" by simp
+lemma MJam_inj_eq: "MJam m b = MJam m' b' \<longleftrightarrow> m = m' \<and> b = b'" by simp
+
+lemma buildable_MWat_imp:
+  "MWat m b \<notin> ms \<Longrightarrow> buildable (MWat m b) ms \<Longrightarrow> buildable b ms"
+  by (simp add: buildable.simps)
+
+(*
+lemma buildable_MJam_imp:
+  "MJam m b \<notin> ms \<Longrightarrow> buildable (MJam m b) ms \<Longrightarrow> buildable b ms"
+  by (simp add: buildable.simps)
+*)
+
+subsubsection \<open> Jamming-elimination characterisation \<close>
+
+text \<open> The bitmask order realises the prefix test used by the jamming rule: a bitmask @{text b'}
+eliminates the jamming of a watermark @{text b} exactly when @{text "b' \<le> b"}, i.e. @{text b'} has
+the same number of bitmasks and no more samples (@{text less_eq_Bm_Bm}). @{text Null} is the least
+element, so an empty jamming bitmask never blocks recovery. \<close>
+
+lemma less_eq_Bm_Bm: "(Bm x1 y1 \<le> Bm x2 y2) = ((x1 = x2) \<and> y1 \<le> y2)"
+  by (simp add: less_eq_dbitmask_def)
+
+lemma less_Bm_Bm: "(Bm x1 y1 < Bm x2 y2) = ((x1 = x2) \<and> y1 < y2)"
+  by (simp add: less_dbitmask_def)
+
+lemma Null_le[simp]: "Null \<le> b"
+  by (simp add: less_eq_dbitmask_def)
+
+lemma not_Bm_le_Null[simp]: "\<not> (Bm x y \<le> Null)"
+  by (simp add: less_eq_dbitmask_def)
+
+lemma le_Null_eq[simp]: "(b \<le> Null) = (b = Null)"
+  by (cases b) (simp_all add: less_eq_dbitmask_def)
+
+subsubsection \<open> Replay versus forgery \<close>
+
+text \<open> The breakdown closure @{text breakl} separates the two watermarking capabilities. By
+@{text breakl_wat} the intruder always learns the underlying message of a watermarked message
+(rule Wat1). By @{text breakl_jam_unknown}, a jammed message whose jamming bitmask is not known is
+left untouched, so it does not by itself leak the plaintext. Finally, @{text breakl_jam_known} shows
+that once the jamming bitmask @{text b} is known and is a prefix of the watermarking bitmask
+@{text bb}, the intruder recovers the plaintext. \<close>
+
+lemma step_once_Wat: "m \<in> set (step_once [MWat m b])"
+  by (simp add: step_once_def one_step.simps List.member_def)
+
+lemma breakl_wat[simp]: "m \<in> set (breakl [MWat m b])"
+proof -
+  have h: "m \<in> set (step_once (remdups [MWat m b]))" by (simp add: step_once_Wat)
+  obtain n where bd: "List.length (submsgs_list [MWat m b]) + 1 = Suc n"
+    by (cases "List.length (submsgs_list [MWat m b])") auto
+  show ?thesis
+    unfolding breakl_def bd
+    using h step_once_subset_iter_Suc[of "remdups [MWat m b]" n] by auto
+qed
+
+lemma step_once_Jam_unknown[simp]:
+  "b \<noteq> Null \<Longrightarrow> step_once [MJam m (MBitm b)] = [MJam m (MBitm b)]"
+  by (cases m; auto simp: step_once_def one_step.simps List.member_def
+           split: dmsg.splits dkey.splits dbitmask.splits)
+
+lemma breakl_jam_unknown:
+  "b \<noteq> Null \<Longrightarrow> breakl [MJam m (MBitm b)] = [MJam m (MBitm b)]"
+proof -
+  assume hb: "b \<noteq> Null"
+  have h: "step_once [MJam m (MBitm b)] = [MJam m (MBitm b)]"
+    using hb by (cases m; auto simp: step_once_def one_step.simps List.member_def
+                    split: dmsg.splits dkey.splits dbitmask.splits)
+  obtain n where bd: "List.length (submsgs_list [MJam m (MBitm b)]) + 1 = Suc n"
+    by (cases "List.length (submsgs_list [MJam m (MBitm b)])") auto
+  show ?thesis
+    unfolding breakl_def bd
+    using h by (simp add: iter_closure_fix)
+qed
+
+lemma breakl_jam_unknown_subset:
+  "b \<noteq> Null \<Longrightarrow> set (breakl [MJam m (MBitm b)]) \<subseteq> {MJam m (MBitm b)}"
+  by (simp add: breakl_jam_unknown)
+
+lemma MJam_MWat_not_self: "m \<noteq> MJam (MWat m bwm) k"
+proof
+  assume "m = MJam (MWat m bwm) k"
+  then have "size m = 2 + size m + size bwm + size k" by simp
+  then show False by linarith
+qed
+
+lemma breakl_jam_unknown_leak:
+  "b \<noteq> Null \<Longrightarrow>
+   MWat m (MBitm bb) \<notin> set (breakl [MJam (MWat m (MBitm bb)) (MBitm b)]) \<and>
+   m \<notin> set (breakl [MJam (MWat m (MBitm bb)) (MBitm b)])"
+  by (simp add: breakl_jam_unknown MJam_MWat_not_self)
+
+lemma step_once_Jam_known:
+  "b \<noteq> Null \<Longrightarrow> b \<le> bb \<Longrightarrow>
+   m \<in> set (step_once [MBitm b, MJam (MWat m (MBitm bb)) (MBitm b)])"
+  by (simp add: step_once_def one_step.simps List.member_def)
+
+lemma breakl_jam_known:
+  "b \<noteq> Null \<Longrightarrow> b \<le> bb \<Longrightarrow>
+   m \<in> set (breakl [MBitm b, MJam (MWat m (MBitm bb)) (MBitm b)])"
+proof -
+  assume hb: "b \<noteq> Null" and hs: "b \<le> bb"
+  let ?K = "[MBitm b, MJam (MWat m (MBitm bb)) (MBitm b)]"
+  have h: "m \<in> set (step_once (remdups ?K))"
+    using hb hs by (simp add: step_once_Jam_known)
+  obtain n where bd: "List.length (submsgs_list ?K) + 1 = Suc n"
+    by (cases "List.length (submsgs_list ?K)") auto
+  show ?thesis
+    unfolding breakl_def bd
+    using h step_once_subset_iter_Suc[of "remdups ?K" n] by auto
+qed
 
 subsection \<open> All instances \<close>
 

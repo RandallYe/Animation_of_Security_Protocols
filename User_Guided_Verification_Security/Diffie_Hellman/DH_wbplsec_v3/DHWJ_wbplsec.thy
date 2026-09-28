@@ -241,7 +241,7 @@ definition Responder :: "dagent \<Rightarrow> dnonce \<Rightarrow> dagent \<Righ
           do {
             \<comment> \<open> If B can break the message m' to get the secret, so the session key works. 
                 The protocol terminates. Otherwise, deadlock (due to the later exception). \<close>
-            \<^cancel>\<open>if List.member (breakm [MNon nb, MAg B, ExpG ^\<^sub>m (MNon nb), gx, m3]) 
+            \<^cancel>\<open>if List.member (breakl [MNon nb, MAg B, ExpG ^\<^sub>m (MNon nb), gx, m3]) 
                  (MPK A) then\<close>
             \<comment> \<open>If the swap of the key (g^y^x) is equal to (g^x^y), then we can decrypt it to get its 
               clear message m3m \<close>
@@ -321,7 +321,7 @@ definition PIntruder0:: "dagent \<Rightarrow> dnonce \<Rightarrow> dmsg list \<R
             \<comment> \<open> Intruder can hear anything Alice and Bob can send \<close>
             (m) \<leftarrow> inp_in cjam (set (all_jm_wm_msg123_agent_send eve));
             \<comment> \<open> Intruder can fake any message (it can infer) to the target \<close>
-            Ret (True, breakm (List.insert m knows), sec)
+            Ret (True, breakl (List.insert m knows), sec)
       }
     \<comment> \<open> If we consider an active attack so it can send inferred messages to Alice and Bob from Intruder.
     Though the intruder can send any inferred message, here we only consider watermarked messages 

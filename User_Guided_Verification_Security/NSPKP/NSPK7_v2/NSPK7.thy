@@ -244,7 +244,7 @@ definition PIntruder0:: "dagent \<Rightarrow> dnonce \<Rightarrow> dmsg list \<R
        do { 
             \<comment> \<open> Intruder can hear anything Alice and Bob can send \<close>
             (A, I, B, m) \<leftarrow> inp_in hear (set (A_I_snd_msg Alice (NonceMap Alice) @ B_I_snd_msg Bob (NonceMap Bob)));
-            Ret (True, breakm (List.insert m knows), sec)
+            Ret (True, breakl (List.insert m knows), sec)
        }
     \<box> \<^cancel>\<open>do { inp_in fake (set [(A, B, m'). A \<leftarrow> [I], B \<leftarrow> removeAll I AllAgents, B \<noteq> Server, 
               m' \<leftarrow> (build\<^sub>n_1 (knows))]); 
