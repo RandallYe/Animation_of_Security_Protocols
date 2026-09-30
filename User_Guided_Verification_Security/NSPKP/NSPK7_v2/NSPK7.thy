@@ -334,7 +334,7 @@ value "rename_I"
 
 definition "PIntruder = rename' (PIntruder2 Intruder (NonceMap Intruder) InitKnows AllSecrets) (set rename_I)"
 
-(* animate_sec "PIntruder" *)
+(* animate_sec_sound "PIntruder" *)
 
 subsubsection \<open> Server \<close>
 text \<open> Now ITree_Iteration.iter is different from the previous one and we use the previous one.
@@ -385,7 +385,7 @@ definition NSPK7 where
     ((PAlice \<parallel>\<^bsub> set terminate_event \<^esub> PBob) \<parallel>\<^bsub> Events_A_B_S \<^esub> PServer) 
     \<parallel>\<^bsub> Events_A_B_S_I \<^esub> PIntruder"
 
-animate_sec NSPK7
+animate_sec_sound NSPK7
 
 (*
 Reachability:

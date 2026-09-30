@@ -135,7 +135,7 @@ definition "PAlice =
     (jamming Alice (Get_messages (A_rcv_msgs Alice)) True))
   \<lbrakk> (set [terminate_C ()]) \<Zrres> skip"
 
-\<^cancel>\<open> animate_sec PAlice \<close>
+\<^cancel>\<open> animate_sec_sound PAlice \<close>
 
 definition A_I_sig :: "dagent \<Rightarrow> dnonce \<Rightarrow> chan list" where
 "A_I_sig A na = [sig_C (ClaimSecret A nb (set [B])). 
@@ -208,7 +208,7 @@ definition "PBob =
   (par_hidep (Responder Bob (NonceMap(Bob))) (Bob_jamming_events Bob (NonceMap Bob)) (PBob_jamming Bob (NonceMap Bob))) 
   \<lbrakk> (set [terminate_C ()]) \<Zrres> skip"
 
-\<^cancel>\<open> animate_sec "PBob" \<close>
+\<^cancel>\<open> animate_sec_sound "PBob" \<close>
 
 definition B_I_sig :: "dagent \<Rightarrow> dnonce \<Rightarrow> chan list" where
 "B_I_sig B nb = [sig_C (ClaimSecret B na (set [A])).
@@ -283,7 +283,7 @@ definition "PIntruder0' I ni k s eve =
   par_hidep (PIntruder0 I ni k s eve) (Intruder_jamming_events eve) (jamming_intruder eve)"
 
 \<^cancel>\<open> definition "Q = PIntruder0' Intruder (NonceMap(Intruder)) InitKnows AllSecrets"
-animate_sec Q \<close>
+animate_sec_sound Q \<close>
 
 definition "PLeakOnlyOnce secrects = \<interleave>\<^bsub>secrects\<^esub> @ (\<lambda>s. do {outp leak s})"
 
@@ -339,7 +339,7 @@ definition "Events_I_Fake = set ([recv_C (Intruder, Intruder, B, m).
 *)
 (*
 definition "P = (PIntruder Eve3)"
-animate_sec P
+animate_sec_sound P
 *)
 
 definition NSWJ3_active where
@@ -416,12 +416,12 @@ subsubsection \<open> Composition \<close>
 definition NSWJ3_passive where
 "NSWJ3_passive eve = (PAlice \<parallel>\<^bsub> set terminate_event \<^esub> PBob) \<parallel>\<^bsub> Events_A_B_I \<^esub> (PIntruder_passive eve)"
 
-text\<open> The previous @{text "animate_sec"} needs to be commented out because only one such command  
+text\<open> The previous @{text "animate_sec_sound"} needs to be commented out because only one such command  
 in a file is allow. \<close>
 definition "NSWJ3_passive_eve1 = NSWJ3_passive Eve1"
 definition "NSWJ3_passive_eve2 = NSWJ3_passive Eve2"
 definition "NSWJ3_passive_eve3 = NSWJ3_passive Eve3"
 definition "NSWJ3_passive_eve4 = NSWJ3_passive Eve4"
-animate_sec NSWJ3_passive_eve4
+animate_sec_sound NSWJ3_passive_eve4
 
 end

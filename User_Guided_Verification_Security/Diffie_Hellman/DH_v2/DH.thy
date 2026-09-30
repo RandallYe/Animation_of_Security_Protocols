@@ -188,7 +188,7 @@ definition DH_Original where
 "DH_Original = 
     (PAlice  \<parallel>\<^bsub> set terminate_event \<^esub> PBob) \<parallel>\<^bsub> Events_A_B_I \<^esub> PIntruder"
 
-animate_sec DH_Original
+animate_sec_sound DH_Original
 
 (* AReach 15 %Terminate%
    AReach 15 %Leak PK0%

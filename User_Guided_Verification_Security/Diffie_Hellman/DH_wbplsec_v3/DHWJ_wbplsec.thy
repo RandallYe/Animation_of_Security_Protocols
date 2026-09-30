@@ -216,7 +216,7 @@ definition "PAlice =
     (jamming Alice (get_messages (A_rcv_msgs Alice)) True)
   ) \<lbrakk> (set [terminate_C ()]) \<Zrres> skip"
 
-(* animate_sec PAlice *)
+(* animate_sec_sound PAlice *)
 
 definition "terminate_rename = [(terminate_C (), terminate_C ())]"
 definition "terminate_event = [terminate_C ()]"
@@ -296,7 +296,7 @@ definition "PBob =
       (PBob_jamming Bob (NonceMap Bob))) 
   \<lbrakk> (set [terminate_C ()]) \<Zrres> skip"
 
-(* animate_sec PBob *)
+(* animate_sec_sound PBob *)
 
 subsubsection \<open> Intruder \<close>
 text \<open> All the messages the agents can send and receive \<close>
@@ -369,7 +369,7 @@ definition "PIntruder eve = (PIntruder1 Intruder (NonceMap(Intruder)) InitKnows 
 
 definition "PIntruderEve1 = PIntruder Eve3"
 
-(* animate_sec PIntruderEve1 *)
+(* animate_sec_sound PIntruderEve1 *)
 
 subsubsection \<open> Composition \<close>
 text \<open> All messages that agents can fake. \<close>
@@ -410,7 +410,7 @@ definition "DHWJ_active_eve1 = DHWJ_active' Eve1"
 definition "DHWJ_active_eve2 = DHWJ_active' Eve2"
 definition "DHWJ_active_eve3 = DHWJ_active' Eve3"
 definition "DHWJ_active_eve4 = DHWJ_active' Eve4"
-animate_sec DHWJ_active_eve4
+animate_sec_sound DHWJ_active_eve4
 
 (* AReach 15 %Terminate%
    AReach 15 %Leak PK0%

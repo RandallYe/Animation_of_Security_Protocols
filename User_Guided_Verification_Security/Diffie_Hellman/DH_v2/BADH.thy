@@ -228,7 +228,7 @@ definition BADH_Signature where
 "BADH_Signature = 
     (PAlice  \<parallel>\<^bsub> set terminate_event \<^esub> PBob) \<parallel>\<^bsub> Events_A_B_I \<^esub> PIntruder"
 
-animate_sec BADH_Signature
+animate_sec_sound BADH_Signature
 
 (* AReach 15 %Terminate%
    AReach 15 %Leak PK0%
