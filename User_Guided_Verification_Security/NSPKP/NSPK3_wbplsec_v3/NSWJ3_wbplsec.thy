@@ -353,7 +353,7 @@ definition "NSWJ3_active_eve1 = NSWJ3_active' Eve1"
 definition "NSWJ3_active_eve2 = NSWJ3_active' Eve2"
 definition "NSWJ3_active_eve3 = NSWJ3_active' Eve3"
 definition "NSWJ3_active_eve4 = NSWJ3_active' Eve4"
-animate_sec NSWJ3_active_eve1
+animate_sec_sound NSWJ3_active_eve3
 
 (*
 Reachability:

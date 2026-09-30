@@ -263,19 +263,19 @@ definition is_MKs:: "('a::len, 'n::len, 'k::len, 's::len, 'g::len, 'bm::len, 'bl
 value "is_MKs ((MK (Ks (nmk 1))) :: (2,4,4,4,1,1,1) dmsg)"
 
 paragraph \<open> Message functions \<close>
-fun length:: "('a::len, 'n::len, 'k::len, 's::len, 'g::len, 'bm::len, 'bl::len) dmsg \<Rightarrow> nat" where
-"length (MAg _) = 1" |
-"length (MNon _) = 1" |
-"length (MK _) = 1" |
-"length (MPair m1 m2) = length m1 + length m2" |
-"length (MAEnc m k) = length m" |
-"length (MSig m k) = length m" |
-"length (MSEnc m k) = length m" |
-"length (MExpg _) = 1" |
-"length (MModExp m k) = length m" |
-"length (MBitm _) = 1" |
-"length (MWat m k) = length m" |
-"length (MJam m k) = length m"
+fun msg_length:: "('a::len, 'n::len, 'k::len, 's::len, 'g::len, 'bm::len, 'bl::len) dmsg \<Rightarrow> nat" where
+"msg_length (MAg _) = 1" |
+"msg_length (MNon _) = 1" |
+"msg_length (MK _) = 1" |
+"msg_length (MPair m1 m2) = msg_length m1 + msg_length m2" |
+"msg_length (MAEnc m k) = msg_length m" |
+"msg_length (MSig m k) = msg_length m" |
+"msg_length (MSEnc m k) = msg_length m" |
+"msg_length (MExpg _) = 1" |
+"msg_length (MModExp m k) = msg_length m" |
+"msg_length (MBitm _) = 1" |
+"msg_length (MWat m k) = msg_length m" |
+"msg_length (MJam m k) = msg_length m"
 
 fun num_aenc:: "('a::len, 'n::len, 'k::len, 's::len, 'g::len, 'bm::len, 'bl::len) dmsg \<Rightarrow> nat" where
 "num_aenc (MAg _) = 0" |
@@ -682,11 +682,11 @@ fun pair2 :: "('a::len, 'n::len, 'k::len, 's::len, 'g::len, 'bm::len, 'bl::len) 
   (map (\<lambda>n. (MPair x n)) \<comment> \<open> Sort the components in MPair \<close>
     (filter 
       \<comment> \<open> they are not the same, length won't exceed l, and they are not private keys  \<close>
-      (\<lambda>y. y \<noteq> x \<and> length x + length y \<le> l \<and> \<not> dupl2 x y \<and> \<not> is_MK x \<and> \<not> is_MK y) 
+      (\<lambda>y. y \<noteq> x \<and> msg_length x + msg_length y \<le> l \<and> \<not> dupl2 x y \<and> \<not> is_MK x \<and> \<not> is_MK y) 
     ys)
   ) @ cs)"
 
-value "length \<lbrace>(MAg (Server))::(2,2,4,4,1) dmsg, (MNon (nmk 1))\<rbrace>\<^sub>m"
+value "msg_length \<lbrace>(MAg (Server))::(2,2,4,4,1) dmsg, (MNon (nmk 1))\<rbrace>\<^sub>m"
 value "pair2 [MNon (nmk 1)::(2,2,4,4,1) dmsg, \<lbrace>(MAg (Agent (nmk 0))), (MNon (nmk 2))\<rbrace>\<^sub>m] 
              [MNon (nmk 2), \<lbrace>(MAg (Agent (nmk 1))), (MNon (nmk 2))\<rbrace>\<^sub>m] 3"
 \<comment> \<open> We expect [] because equal or duplicate cases \<close>
@@ -890,7 +890,7 @@ fun pair2 :: "('a::len, 'n::len, 'k::len, 's::len, 'g::len, 'bm::len, 'bl::len) 
     (map (\<lambda>n. msort (MPair x n)) \<comment> \<open> Sort the components in MPair \<close>
       (filter 
         \<comment> \<open> they are not the same, length won't exceed l, and they are not watermarked and jammed \<close>
-        (\<lambda>y. y \<noteq> x \<and> length x + length y \<le> l \<and> \<not> is_MWat y \<and> \<not> is_MJam y) 
+        (\<lambda>y. y \<noteq> x \<and> msg_length x + msg_length y \<le> l \<and> \<not> is_MWat y \<and> \<not> is_MJam y) 
       ys)
     ) @ cs)
 \<^cancel>\<open>)\<close>"

@@ -233,7 +233,7 @@ definition "Events_A_B_I =
 definition NSPK3 where
 "NSPK3 = (PAlice \<parallel>\<^bsub> set terminate_event \<^esub> PBob)  \<parallel>\<^bsub> Events_A_B_I \<^esub>  PIntruder"
 
-animate_sec NSPK3
+animate_sec_sound NSPK3
 
 (*
 Expected trace: 
