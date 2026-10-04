@@ -846,6 +846,87 @@ proof -
 qed
 
 
+subsection \<open> Classifying the state a trace reaches \<close>
+
+text \<open>
+  @{text state_kind} follows a trace of the model, spending at most \<open>mx\<close>
+  internal steps between visible events, and reports how the run ends: a
+  finished run, a deadlock, a divergence (the internal budget is exhausted), or
+  a state that can still perform events.  The web interface uses it to label the
+  leaves of the event tree it stores, so a leaf says whether the run terminated,
+  deadlocked or diverged, as the hand-written explorer did.
+\<close>
+
+datatype skind = SContinues | STerminated | SDeadlocked | SDivergent
+
+text \<open> The run is followed with an explicit fuel, so that the definition is
+  structurally recursive and needs no termination proof: one visible event may
+  be preceded by at most \<open>mx\<close> internal steps, hence
+  \<open>(length tr + 1) * (mx + 1)\<close> steps always suffice. \<close>
+
+fun follow_fuel :: "nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> ('e, 's) itree \<Rightarrow> 'e list \<Rightarrow> ('e, 's) itree" where
+  "follow_fuel 0 mx t P tr = P"
+| "follow_fuel (Suc f) mx (Suc t) (Sil P) tr = follow_fuel f mx t P tr"
+| "follow_fuel (Suc f) mx 0 (Sil P) tr = Sil P"
+| "follow_fuel (Suc f) mx t (Ret x) tr = Ret x"
+| "follow_fuel (Suc f) mx t (Vis F) [] = Vis F"
+| "follow_fuel (Suc f) mx t (Vis F) (e # tr) =
+     (if e \<in> pdom F then follow_fuel f mx mx (F e) tr else Vis F)"
+
+fun stop_kind :: "nat \<Rightarrow> ('e, 's) itree \<Rightarrow> skind" where
+  "stop_kind t (Ret x) = STerminated"
+| "stop_kind 0 (Sil P) = SDivergent"
+| "stop_kind (Suc t) (Sil P) = stop_kind t P"
+| "stop_kind t (Vis F) = (if pdom F = {} then SDeadlocked else SContinues)"
+
+text \<open> The code generator represents \<open>nat\<close> as an opaque type, so the
+  pattern equations above cannot be used directly; the following arithmetic
+  equations are what is extracted. \<close>
+
+lemma follow_fuel_code [code]:
+  "follow_fuel f mx t P tr =
+     (if f = 0 then P
+      else case P of
+             Sil Q \<Rightarrow> (if t = 0 then Sil Q else follow_fuel (f - 1) mx (t - 1) Q tr)
+           | Ret x \<Rightarrow> Ret x
+           | Vis F \<Rightarrow> (case tr of
+                           [] \<Rightarrow> Vis F
+                         | e # tr' \<Rightarrow> (if e \<in> pdom F
+                                          then follow_fuel (f - 1) mx mx (F e) tr'
+                                          else Vis F)))"
+  by (cases f; cases P; cases t) (auto split: itree.splits list.splits)
+
+lemma stop_kind_code [code]:
+  "stop_kind t P =
+     (case P of
+        Ret x \<Rightarrow> STerminated
+      | Sil Q \<Rightarrow> (if t = 0 then SDivergent else stop_kind (t - 1) Q)
+      | Vis F \<Rightarrow> (if pdom F = {} then SDeadlocked else SContinues))"
+  by (cases P; cases t) auto
+
+declare follow_fuel.simps [code del]
+declare stop_kind.simps [code del]
+
+definition state_kind :: "nat \<Rightarrow> ('e, 's) itree \<Rightarrow> 'e list \<Rightarrow> skind" where
+  "state_kind mx P tr = stop_kind mx (follow_fuel ((length tr + 1) * (mx + 1)) mx mx P tr)"
+
+text \<open> The classification is the one of the hand-written explorer: a state
+  whose domain is empty is a deadlock, an exhausted internal budget is a
+  divergence, a finished run is termination, and anything else can continue. \<close>
+
+lemma state_kind_Terminated:
+  "state_kind mx (Ret x) tr = STerminated"
+  by (cases "(length tr + 1) * (mx + 1)" rule: nat.exhaust) (simp_all add: state_kind_def)
+
+lemma state_kind_Deadlocked:
+  "pdom F = {} \<Longrightarrow> state_kind mx (Vis F) [] = SDeadlocked"
+  by (cases "(length ([] :: 'e list) + 1) * (mx + 1)" rule: nat.exhaust)
+     (simp_all add: state_kind_def)
+
+lemma state_kind_Divergent:
+  "state_kind 0 (Sil P) [] = SDivergent"
+  by (simp add: state_kind_def)
+
 subsection \<open> Sound exploration driver \<close>
 
 text \<open> A generic driver for the Isabelle-extracted search.  It is compiled
