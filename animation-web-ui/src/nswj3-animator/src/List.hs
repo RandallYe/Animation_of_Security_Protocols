@@ -1,8 +1,8 @@
 {-# LANGUAGE EmptyDataDecls, RankNTypes, ScopedTypeVariables #-}
 
 module
-  List(fold, foldl, member, insert, union, remdups, removeAll, gen_length,
-        map_filter, size_list)
+  List(fold, last, foldl, member, insert, union, butlast, remdups, removeAll,
+        gen_length, map_filter, size_list)
   where {
 
 import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
@@ -10,7 +10,9 @@ import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
   error, id, return, not, fst, snd, map, filter, concat, concatMap, reverse,
   zip, null, takeWhile, dropWhile, all, any, Integer, negate, abs, divMod,
   String, Bool(True, False), Maybe(Nothing, Just));
+import Data.Bits ((.&.), (.|.));
 import qualified Prelude;
+import qualified Data.Bits;
 import qualified Rational;
 import qualified Option;
 import qualified Arith;
@@ -18,6 +20,9 @@ import qualified Arith;
 fold :: forall a b. (a -> b -> b) -> [a] -> b -> b;
 fold f (x : xs) s = fold f xs (f x s);
 fold f [] s = s;
+
+last :: forall a. [a] -> a;
+last (x : xs) = (if null xs then x else last xs);
 
 foldl :: forall a b. (a -> b -> a) -> a -> [b] -> a;
 foldl f a [] = a;
@@ -32,6 +37,10 @@ insert x xs = (if member xs x then xs else x : xs);
 
 union :: forall a. (Eq a) => [a] -> [a] -> [a];
 union = fold insert;
+
+butlast :: forall a. [a] -> [a];
+butlast [] = [];
+butlast (x : xs) = (if null xs then [] else x : butlast xs);
 
 remdups :: forall a. (Eq a) => [a] -> [a];
 remdups [] = [];

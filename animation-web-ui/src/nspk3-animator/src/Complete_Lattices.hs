@@ -1,6 +1,6 @@
 {-# LANGUAGE EmptyDataDecls, RankNTypes, ScopedTypeVariables #-}
 
-module Orderings(Ord(..), max) where {
+module Complete_Lattices(sup_set) where {
 
 import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
   (>>=), (>>), (=<<), (&&), (||), (^), (^^), (.), ($), ($!), (++), (!!), Eq,
@@ -11,13 +11,10 @@ import Data.Bits ((.&.), (.|.));
 import qualified Prelude;
 import qualified Data.Bits;
 import qualified Rational;
+import qualified List;
+import qualified Set;
 
-class Ord a where {
-  less_eq :: a -> a -> Bool;
-  less :: a -> a -> Bool;
-};
-
-max :: forall a. (Ord a) => a -> a -> a;
-max a b = (if less_eq a b then b else a);
+sup_set :: forall a. (Eq a) => Set.Set (Set.Set a) -> Set.Set a;
+sup_set (Set.Set xs) = List.fold Set.sup_set xs Set.bot_set;
 
 }

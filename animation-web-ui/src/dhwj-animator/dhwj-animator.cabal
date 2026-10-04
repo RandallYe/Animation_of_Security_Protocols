@@ -28,6 +28,7 @@ library
       AList
       Arith
       Channel_Type
+      Complete_Lattices
       Countable
       CSP_operators
       DHWJ_Animate
@@ -49,6 +50,7 @@ library
       Prisms
       Product_Type
       Rational
+      Sec_Animation
       Sec_Messages
       Set
       Simulate

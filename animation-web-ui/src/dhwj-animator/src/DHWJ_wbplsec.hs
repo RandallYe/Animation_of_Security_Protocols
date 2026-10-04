@@ -15,7 +15,8 @@ module
                 pIntruder1, pIntruder, a_snd_msgs, all_msgs_I, b_snd_msgs,
                 terminate_event, evt_msgs_recv, b_recv_events, a_recv_events,
                 evt_msgs_snd, b_snd_events, a_snd_events, events_A_B_I,
-                dHWJ_active, dHWJ_active_eve4)
+                dHWJ_active, dHWJ_active_eve1, dHWJ_active_eve2,
+                dHWJ_active_eve3, dHWJ_active_eve4)
   where {
 
 import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
@@ -23,7 +24,9 @@ import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
   error, id, return, not, fst, snd, map, filter, concat, concatMap, reverse,
   zip, null, takeWhile, dropWhile, all, any, Integer, negate, abs, divMod,
   String, Bool(True, False), Maybe(Nothing, Just));
+import Data.Bits ((.&.), (.|.));
 import qualified Prelude;
+import qualified Data.Bits;
 import qualified Rational;
 import qualified Typerep;
 import qualified HOL;
@@ -1727,6 +1730,45 @@ dHWJ_active ::
 dHWJ_active eve =
   ITree_CSP.gpar_csp (ITree_CSP.gpar_csp pAlice (Set.Set terminate_event) pBob)
     events_A_B_I (pIntruder eve);
+
+dHWJ_active_eve1 ::
+  Interaction_Trees.Itree
+    (Sec_Messages.Chan (Numeral_Type.Bit0 Numeral_Type.Num1)
+      (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
+      (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
+      (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
+      Numeral_Type.Num1 (Numeral_Type.Bit1 Numeral_Type.Num1)
+      (Numeral_Type.Bit0 Numeral_Type.Num1))
+    ();
+dHWJ_active_eve1 =
+  (if DHWJ_config.equal_deve DHWJ_config.Eve1 DHWJ_config.Eve2
+    then dHWJ_active DHWJ_config.Eve1 else dHWJ_active DHWJ_config.Eve1);
+
+dHWJ_active_eve2 ::
+  Interaction_Trees.Itree
+    (Sec_Messages.Chan (Numeral_Type.Bit0 Numeral_Type.Num1)
+      (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
+      (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
+      (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
+      Numeral_Type.Num1 (Numeral_Type.Bit1 Numeral_Type.Num1)
+      (Numeral_Type.Bit0 Numeral_Type.Num1))
+    ();
+dHWJ_active_eve2 =
+  (if DHWJ_config.equal_deve DHWJ_config.Eve1 DHWJ_config.Eve2
+    then dHWJ_active DHWJ_config.Eve2 else dHWJ_active DHWJ_config.Eve2);
+
+dHWJ_active_eve3 ::
+  Interaction_Trees.Itree
+    (Sec_Messages.Chan (Numeral_Type.Bit0 Numeral_Type.Num1)
+      (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
+      (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
+      (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
+      Numeral_Type.Num1 (Numeral_Type.Bit1 Numeral_Type.Num1)
+      (Numeral_Type.Bit0 Numeral_Type.Num1))
+    ();
+dHWJ_active_eve3 =
+  (if DHWJ_config.equal_deve DHWJ_config.Eve1 DHWJ_config.Eve2
+    then dHWJ_active DHWJ_config.Eve3 else dHWJ_active DHWJ_config.Eve3);
 
 dHWJ_active_eve4 ::
   Interaction_Trees.Itree
