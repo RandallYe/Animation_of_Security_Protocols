@@ -49,17 +49,16 @@ import Import (redirect, get404, setSession)
 import Text.Read (readMaybe, read)
 import Data.Graph (reachable)
 
+-- | Build the protocol event tree unless it has already been built.  The tree
+--   comes from the Isabelle-proved exploration, so the work is serialised on the
+--   protocol's lock and the completion marker is re-checked inside it.
+ensureEventTree :: Handler ()
+ensureEventTree = ensureTreeBuilt "nspk3" "NSPK3" initInsertEventTreeToDB
+
 getAnimateNSPK3R :: Handler Html
 getAnimateNSPK3R = do
-    -- Check if the event tree is already in the DB by looking for the ROOT event
-    rootEventDB <- runDB $ getRootEventDB 
-    -- liftIO $ print $ "rootEventDB" <> T.pack (show rootEventDB)
-    case rootEventDB of
-      [] -> liftHandler $ initInsertEventTreeToDB 
-      _ -> return () -- So the tree is already in the DB
+    ensureEventTree
 
-    -- If we change the protocol to be animated, we should clear all protocol-specific session data
-    -- At the moment, we just clear the session to make it simpler. Maybe we need to refine this later.
     maybeProtocol <- lookupSession $ sessionProtocolNameKey
     case maybeProtocol of
       -- We don't need to set the protocol name if it is already NSPK3
@@ -162,6 +161,7 @@ postAnimateNSPK3AutoR = do
 autoFormHandler :: AutoInputForm -> Handler String
 autoFormHandler autoFormRes = do 
       clearSessionForCounterexamples
+      (depth, internal_depth) <- getEventTreeDepthFor "nspk3"
       res <- autoCheck reach ch1 msg1 ch2 msg2
       -- setMessage $ toHtml $ "Automatic reachability check counterexamples: " ++ show (length res) ++ "."
       liftIO $ print ("Automatic reachability check counterexamples: " ++ show (length res) ++ ".")
@@ -175,7 +175,8 @@ autoFormHandler autoFormRes = do
         , show ch1 
         , "/ "
         , show msg1
-        , "]." ]
+        , "]. "
+        , T.unpack (boundedVerdict depth internal_depth (length res)) ]
     where 
       reach = autoReach autoFormRes 
       ch1 = autoMonitorChannel autoFormRes 
@@ -204,34 +205,29 @@ postAnimateNSPK3ResetR = do
   clearSession
   redirect $ AnimateNSPK3R :#: ("animation_forms" :: Text)
 
--- | Initialise the database with explored tree and insert all events into the DB
+-- | Initialise the database with explored tree and insert all events into the DB.
+--   The exploration is computed first; the rows are then inserted in small
+--   transactions and the completion marker is written last.  The SQLite write
+--   lock is therefore never held for long, and an interrupted build is detected
+--   (there is no marker) and redone.
 initInsertEventTreeToDB :: Handler ()
 initInsertEventTreeToDB = do
-    liftIO $ print "initInsertEventTreeToDB"
-    (depth, internal_depth) <- getEventTreeDepth
-    case explore_tree_NSPK3 depth internal_depth of
-      ETNode (TEP 0 0 Root) trees -> do 
-        -- insert the ROOT event with its parent id set to -1
-        runDB $ do insert_ $ NSPK3Trees "NSPK3" 0 0 0 (-1) (NSPK3_TEvent Root)
-        case trees of
-          [] -> return ()
-          (xs) -> do 
-            -- liftIO $ print "initInsertEventTreeToDB" 
-            eid <- traverseTree (map NSPK3_EventTree xs) 0 0
-            return ()
-      _ -> return ()
+    (depth, internal_depth) <- getEventTreeDepthFor "nspk3"
+    let tree = explore_tree_NSPK3 depth internal_depth
+        rows = treeRows 0 (-1) tree
+    runDB $ deleteWhere [NSPK3TreesProtocol ==. "NSPK3"]
+    mapM_ (runDB . insertMany_ . map mkRow) (chunksOfN treeInsertChunk rows)
+    runDB $ markTreeBuilt "nspk3" "NSPK3"
+  where
+    mkRow (eid, d, n, parent, e) = NSPK3Trees "NSPK3" eid d n parent (NSPK3_TEvent e)
 
--- | Traverse a list of event trees based on current event id and parent
-traverseTree :: [NSPK3_EventTree] -> Int -> Int -> Handler Int 
-traverseTree [] eid parent = return eid
-traverseTree (x:xs) eid parent = case x of 
-  NSPK3_EventTree (ETNode et@(TEP d n e) trees) -> do
-        -- logInfo $ "Insert: " <> T.pack (show e)
-        runDB $ do insert_ $ NSPK3Trees "NSPK3" (eid+1) d n parent (NSPK3_TEvent e)
-        eid1 <- traverseTree (map NSPK3_EventTree trees) (eid+1) (eid+1)
-        eid2 <- traverseTree xs eid1 parent
-        return eid2 
---  _ -> return ()
+-- | The rows of a tree in the pre-order numbering used by the database: the
+--   root has event id 0 and parent -1, and each subtree is numbered before the
+--   next sibling.
+treeRows eid parent (ETNode (TEP d n e) cs) = (eid, d, n, parent, e) : go (eid + 1) cs
+  where
+    go _ [] = []
+    go next (c:cs) = let rs = treeRows next eid c in rs ++ go (next + length rs) cs
 
 -- | Get the ROOT event from the database
 getRootEventDB :: DB [Entity NSPK3Trees]

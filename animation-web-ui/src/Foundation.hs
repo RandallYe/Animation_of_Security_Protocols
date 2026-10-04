@@ -45,6 +45,12 @@ data App = App
     , appConnPool    :: ConnectionPool -- ^ Database connection pool.
     , appHttpManager :: Manager
     , appLogger      :: Logger
+    , appTreeBuildLocks :: Map Text (MVar ())
+    -- ^ One lock per protocol, serialising the construction of its event tree.
+    --   A tree is built by the first request that finds its table empty (or by
+    --   the startup preload), and that exploration can take minutes; without
+    --   the lock two concurrent builders would do the work twice and the second
+    --   would hit the unique index on the event id.
     }
 
 data MenuItem = MenuItem

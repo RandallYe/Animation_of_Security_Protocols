@@ -34,7 +34,7 @@ import Handler.Common
 --      splitOn, plantUMLInput4Counterexample,  
 --    )
 import Handler.Session ( sessionAddForm, getSessionId)
-import NSWJ3_config (Deve(..), equal_deve)
+import NSWJ3_config (Deve(..))
 -- import NSWJ3_wbplsec (nSWJ3_active)
 import qualified NSWJ3_Animate as NSA (explore_tree_NSWJ3, 
   EventTree(ETNode), TEventPos(TEP), TEvent(Root, Deadlocked, Terminated, Divergent, EChan),
@@ -48,29 +48,19 @@ import Import (redirect, get404, setSession)
 import Text.Read (readMaybe, read)
 import Data.Graph (reachable)
 
+-- | Build one eavesdropper scenario's tree unless it has already been built.
+--   The tree comes from the Isabelle-proved exploration, so the work is
+--   serialised on the protocol's lock and the completion marker is re-checked
+--   inside it.
+ensureEventTree :: Deve -> Handler ()
+ensureEventTree Eve1 = ensureTreeBuilt "nswj3" "NSWJ3Eve1" (initInsertEventTreeToDB Eve1)
+ensureEventTree Eve2 = ensureTreeBuilt "nswj3" "NSWJ3Eve2" (initInsertEventTreeToDB Eve2)
+ensureEventTree Eve3 = ensureTreeBuilt "nswj3" "NSWJ3Eve3" (initInsertEventTreeToDB Eve3)
+ensureEventTree Eve4 = ensureTreeBuilt "nswj3" "NSWJ3Eve4" (initInsertEventTreeToDB Eve4)
+
 getAnimateNSWJ3R :: Handler Html
 getAnimateNSWJ3R = do
-    -- Check if the event tree is already in the DB by looking for the ROOT event
-    rootEventDBEve1 <- runDB $ getRootEventDBEve1 
-    -- liftIO $ print $ "rootEventDB" <> T.pack (show rootEventDB)
-    case rootEventDBEve1 of
-      [] -> liftHandler $ initInsertEventTreeToDB Eve1
-      _ -> return () -- So the tree is already in the DB
-
-    rootEventDBEve2 <- runDB $ getRootEventDBEve2 
-    case rootEventDBEve2 of
-      [] -> liftHandler $ initInsertEventTreeToDB Eve2 
-      _ -> return () -- So the tree is already in the DB
-
-    rootEventDBEve3 <- runDB $ getRootEventDBEve3 
-    case rootEventDBEve3 of
-      [] -> liftHandler $ initInsertEventTreeToDB Eve3 
-      _ -> return () -- So the tree is already in the DB
-
-    rootEventDBEve4 <- runDB $ getRootEventDBEve4 
-    case rootEventDBEve4 of
-      [] -> liftHandler $ initInsertEventTreeToDB Eve4 
-      _ -> return () -- So the tree is already in the DB
+    mapM_ ensureEventTree [Eve1, Eve2, Eve3, Eve4]
 
     maybeProtocol <- lookupSession $ sessionProtocolNameKey
     case maybeProtocol of
@@ -182,6 +172,7 @@ postAnimateNSWJ3AutoR = do
 autoFormHandler :: AutoInputForm -> Handler String
 autoFormHandler autoFormRes = do 
       clearSessionForCounterexamples
+      (depth, internal_depth) <- getEventTreeDepthFor "nswj3"
       res <- autoCheck reach ch1 msg1 ch2 msg2
       -- setMessage $ toHtml $ "Automatic reachability check counterexamples: " ++ show (length res) ++ "."
       liftIO $ print ("Automatic reachability check counterexamples: " ++ show (length res) ++ ".")
@@ -195,7 +186,8 @@ autoFormHandler autoFormRes = do
         , show ch1 
         , "/ "
         , show msg1
-        , "]." ]
+        , "]. "
+        , T.unpack (boundedVerdict depth internal_depth (length res)) ]
     where 
       reach = autoReach autoFormRes 
       ch1 = autoMonitorChannel autoFormRes 
@@ -251,92 +243,49 @@ eveFormHandler eveInput = do
 
   redirect $ AnimateNSWJ3R 
 
--- | Initialise the database with explored tree and insert all events into the DB
+-- | Initialise the database with explored tree and insert all events into the DB.
+--   The exploration is computed first; the scenario's rows are then inserted in
+--   small transactions and the completion marker is written last.  The SQLite
+--   write lock is therefore never held for long, and an interrupted build is
+--   detected (there is no marker) and redone.
 initInsertEventTreeToDB :: Deve -> Handler ()
 initInsertEventTreeToDB eve = do
-    -- liftIO $ print "initInsertEventTreeToDB"
-    (depth, internal_depth) <- getEventTreeDepth
+    (depth, internal_depth) <- getEventTreeDepthFor "nswj3"
+    let tree = NSA.explore_tree_NSWJ3 depth internal_depth eve
+        rows = treeRows 0 (-1) tree
     case eve of
-      Eve1 -> 
-        case NSA.explore_tree_NSWJ3 depth internal_depth Eve1 of
-          NSA.ETNode (NSA.TEP 0 0 NSA.Root) trees -> do 
-            -- insert the ROOT event with its parent id set to -1
-            runDB $ do insert_ $ NSWJ3TreesEve1 "NSWJ3Eve1" 0 0 0 (-1) (NSA.NSWJ3_TEvent NSA.Root)
-            case trees of
-              [] -> return ()
-              (xs) -> do 
-                -- liftIO $ print "initInsertEventTreeToDB" 
-                eid <- traverseTree (map NSA.NSWJ3_EventTree xs) 0 0 eve
-                return ()
-          _ -> return ()
-      Eve2 -> 
-        case NSA.explore_tree_NSWJ3 depth internal_depth Eve2 of
-          NSA.ETNode (NSA.TEP 0 0 NSA.Root) trees -> do 
-            -- insert the ROOT event with its parent id set to -1
-            runDB $ do insert_ $ NSWJ3TreesEve2 "NSWJ3Eve2" 0 0 0 (-1) (NSA.NSWJ3_TEvent NSA.Root)
-            case trees of
-              [] -> return ()
-              (xs) -> do 
-                -- liftIO $ print "initInsertEventTreeToDB" 
-                eid <- traverseTree (map NSA.NSWJ3_EventTree xs) 0 0 eve
-                return ()
-          _ -> return ()
-      Eve3 -> 
-        case NSA.explore_tree_NSWJ3 depth internal_depth Eve3 of
-          NSA.ETNode (NSA.TEP 0 0 NSA.Root) trees -> do 
-            -- insert the ROOT event with its parent id set to -1
-            runDB $ do insert_ $ NSWJ3TreesEve3 "NSWJ3Eve3" 0 0 0 (-1) (NSA.NSWJ3_TEvent NSA.Root)
-            case trees of
-              [] -> return ()
-              (xs) -> do 
-                -- liftIO $ print "initInsertEventTreeToDB" 
-                eid <- traverseTree (map NSA.NSWJ3_EventTree xs) 0 0 eve
-                return ()
-          _ -> return ()
-      Eve4 -> 
-        case NSA.explore_tree_NSWJ3 depth internal_depth Eve4 of
-          NSA.ETNode (NSA.TEP 0 0 NSA.Root) trees -> do 
-            -- insert the ROOT event with its parent id set to -1
-            runDB $ do insert_ $ NSWJ3TreesEve4 "NSWJ3Eve4" 0 0 0 (-1) (NSA.NSWJ3_TEvent NSA.Root)
-            case trees of
-              [] -> return ()
-              (xs) -> do 
-                -- liftIO $ print "initInsertEventTreeToDB" 
-                eid <- traverseTree (map NSA.NSWJ3_EventTree xs) 0 0 eve
-                return ()
-          _ -> return ()
-      _ -> return ()
-
--- | Traverse a list of event trees based on current event id and parent
-traverseTree :: [NSA.NSWJ3_EventTree] -> Int -> Int -> Deve -> Handler Int 
-traverseTree [] eid parent deve = return eid
-traverseTree (x:xs) eid parent deve = case x of 
-  NSA.NSWJ3_EventTree (NSA.ETNode et@(NSA.TEP d n e) trees) -> 
-    case deve of
       Eve1 -> do
-        -- logInfo $ "Insert: " <> T.pack (show e)
-        runDB $ do insert_ $ NSWJ3TreesEve1 "NSWJ3Eve1" (eid+1) d n parent (NSA.NSWJ3_TEvent e)
-        eid1 <- traverseTree (map NSA.NSWJ3_EventTree trees) (eid+1) (eid+1) deve
-        eid2 <- traverseTree xs eid1 parent deve
-        return eid2 
+        runDB $ deleteWhere [NSWJ3TreesEve1Protocol ==. "NSWJ3Eve1"]
+        mapM_ (runDB . insertMany_ . map mkRow1) (chunksOfN treeInsertChunk rows)
+        runDB $ markTreeBuilt "nswj3" "NSWJ3Eve1"
       Eve2 -> do
-        -- logInfo $ "Insert: " <> T.pack (show e)
-        runDB $ do insert_ $ NSWJ3TreesEve2 "NSWJ3Eve2" (eid+1) d n parent (NSA.NSWJ3_TEvent e)
-        eid1 <- traverseTree (map NSA.NSWJ3_EventTree trees) (eid+1) (eid+1) deve
-        eid2 <- traverseTree xs eid1 parent deve
-        return eid2 
+        runDB $ deleteWhere [NSWJ3TreesEve2Protocol ==. "NSWJ3Eve2"]
+        mapM_ (runDB . insertMany_ . map mkRow2) (chunksOfN treeInsertChunk rows)
+        runDB $ markTreeBuilt "nswj3" "NSWJ3Eve2"
       Eve3 -> do
-        -- logInfo $ "Insert: " <> T.pack (show e)
-        runDB $ do insert_ $ NSWJ3TreesEve3 "NSWJ3Eve3" (eid+1) d n parent (NSA.NSWJ3_TEvent e)
-        eid1 <- traverseTree (map NSA.NSWJ3_EventTree trees) (eid+1) (eid+1) deve
-        eid2 <- traverseTree xs eid1 parent deve
-        return eid2
+        runDB $ deleteWhere [NSWJ3TreesEve3Protocol ==. "NSWJ3Eve3"]
+        mapM_ (runDB . insertMany_ . map mkRow3) (chunksOfN treeInsertChunk rows)
+        runDB $ markTreeBuilt "nswj3" "NSWJ3Eve3"
       Eve4 -> do
-        -- logInfo $ "Insert: " <> T.pack (show e)
-        runDB $ do insert_ $ NSWJ3TreesEve4 "NSWJ3Eve4" (eid+1) d n parent (NSA.NSWJ3_TEvent e)
-        eid1 <- traverseTree (map NSA.NSWJ3_EventTree trees) (eid+1) (eid+1) deve
-        eid2 <- traverseTree xs eid1 parent deve
-        return eid2
+        runDB $ deleteWhere [NSWJ3TreesEve4Protocol ==. "NSWJ3Eve4"]
+        mapM_ (runDB . insertMany_ . map mkRow4) (chunksOfN treeInsertChunk rows)
+        runDB $ markTreeBuilt "nswj3" "NSWJ3Eve4"
+  where
+    mkRow1 (eid, d, n, parent, e) = NSWJ3TreesEve1 "NSWJ3Eve1" eid d n parent (NSA.NSWJ3_TEvent e)
+
+    mkRow2 (eid, d, n, parent, e) = NSWJ3TreesEve2 "NSWJ3Eve2" eid d n parent (NSA.NSWJ3_TEvent e)
+
+    mkRow3 (eid, d, n, parent, e) = NSWJ3TreesEve3 "NSWJ3Eve3" eid d n parent (NSA.NSWJ3_TEvent e)
+
+    mkRow4 (eid, d, n, parent, e) = NSWJ3TreesEve4 "NSWJ3Eve4" eid d n parent (NSA.NSWJ3_TEvent e)
+
+-- | The rows of a tree in the pre-order numbering used by the database: the
+--   root has event id 0 and parent -1, and each subtree is numbered before the
+--   next sibling.
+treeRows eid parent (NSA.ETNode (NSA.TEP d n e) cs) = (eid, d, n, parent, e) : go (eid + 1) cs
+  where
+    go _ [] = []
+    go next (c:cs) = let rs = treeRows next eid c in rs ++ go (next + length rs) cs
 
 -- | Get the ROOT event from the database
 getRootEventDBEve1 :: DB [Entity NSWJ3TreesEve1]

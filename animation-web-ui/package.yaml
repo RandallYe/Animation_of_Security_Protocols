@@ -55,6 +55,7 @@ dependencies:
 - acid-state
 - utf8-string >= 1.0.2
 - blaze-markup >= 0.8.2.8
+- microlens
 
 # The library contains all of our application code. The executable
 # defined below is just a thin wrapper.

@@ -66,6 +66,12 @@ data AppSettings = AppSettings
 
     , appEventTreeDepth         :: Int
     , appEventTreeInternalDepth :: Int
+    , appPreloadEventTrees      :: Bool
+    -- ^ Build the protocol event trees in the background at startup.
+    , appEventTreeBounds        :: Map Text (Int, Int)
+    -- ^ Per-protocol overrides of the exploration bounds, keyed by protocol
+    --   (for example @nswj3@).  A missing protocol falls back to the two
+    --   defaults above.
     }
 
 instance FromJSON AppSettings where
@@ -99,6 +105,8 @@ instance FromJSON AppSettings where
 
         appEventTreeDepth         <- o .:  "event-tree-depth"
         appEventTreeInternalDepth <- o .:  "event-tree-internal-depth"
+        appEventTreeBounds        <- o .:? "event-tree-bounds" .!= mempty
+        appPreloadEventTrees      <- o .:? "event-tree-preload" .!= True
 
         return AppSettings {..}
 

@@ -21,9 +21,15 @@ module Application
     ) where
 
 import Control.Monad.Logger                 (liftLoc, runLoggingT)
-import Database.Persist.Sqlite              (createSqlitePool, runSqlPool,
+import Database.Persist.Sqlite              (createSqlitePool, createSqlitePoolFromInfo,
+                                      mkSqliteConnectionInfo, walEnabled, fkEnabled, extraPragmas, runSqlPool,
                                              sqlDatabase, sqlPoolSize)
 import Import
+import Handler.TreeBuild (preloadEventTrees)
+import qualified Data.Map as Map
+import Control.Concurrent (forkIO)
+import Lens.Micro ((&), (.~))
+import qualified Data.Text as T
 import Language.Haskell.TH.Syntax           (qLocation)
 import Network.HTTP.Client.TLS              (getGlobalManager)
 import Network.Wai (Middleware)
@@ -66,6 +72,10 @@ mkMigrate "migrateAll" (entityDefs `embedEntityDefs` serverSessionDefsBySessionM
 -- migrations handled by Yesod.
 makeFoundation :: AppSettings -> IO App
 makeFoundation appSettings = do
+    appTreeBuildLocks <- do
+        let protocols = ["nspk3", "nslpk3", "nswj3", "dhwj"] :: [Text]
+        locks <- mapM (const (newMVar ())) protocols
+        return (Map.fromList (zip protocols locks))
     -- Some basic initializations: HTTP connection manager, logger, and static
     -- subsite.
     appHttpManager <- getGlobalManager
@@ -87,17 +97,38 @@ makeFoundation appSettings = do
         logFunc = messageLoggerSource tempFoundation appLogger
 
     -- Create the database connection pool
-    pool <- flip runLoggingT logFunc $ createSqlitePool
-        (sqlDatabase $ appDatabaseConf appSettings)
-        (sqlPoolSize $ appDatabaseConf appSettings)
+    -- WAL plus a busy timeout: a request that writes the session waits for the
+    -- tree builder's transaction instead of failing with "database is locked".
+    let dbConf = appDatabaseConf appSettings
+        connInfo = mkSqliteConnectionInfo (sqlDatabase dbConf)
+                     & walEnabled   .~ True
+                     & fkEnabled    .~ True
+                     & extraPragmas .~ ["PRAGMA busy_timeout = 15000"]
+    pool <- flip runLoggingT logFunc $ createSqlitePoolFromInfo connInfo (sqlPoolSize dbConf)
 
     -- Perform database migration using our application's logging settings.
     runLoggingT (runSqlPool (runMigration migrateAll) pool) logFunc
 
     -- handler initDB
 
+    let foundation = mkFoundation pool
+
+    -- Build the protocol event trees in the background, so that no page request
+    -- has to wait for an exploration that can take minutes.  A request that
+    -- still finds a table empty falls back to the same builder, serialised on
+    -- the same per-protocol lock.
+    if appPreloadEventTrees appSettings
+      then do
+        _ <- forkIO $ do
+            r <- try (unsafeHandler foundation preloadEventTrees) :: IO (Either SomeException ())
+            case r of
+              Left e  -> putStrLn (T.pack ("preloadEventTrees failed: " ++ show e))
+              Right _ -> putStrLn "preloadEventTrees finished"
+        return ()
+      else return ()
+
     -- Return the foundation
-    return $ mkFoundation pool
+    return foundation
 
 -- | Convert our foundation to a WAI Application by calling @toWaiAppPlain@ and
 -- applying some additional middlewares.
