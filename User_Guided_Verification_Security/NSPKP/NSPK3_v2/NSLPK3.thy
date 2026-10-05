@@ -227,7 +227,7 @@ definition "LEvents_A_B_I =
 definition NSLPK3 where
 "NSLPK3 = (LPAlice \<parallel>\<^bsub> set terminate_event \<^esub> LPBob)  \<parallel>\<^bsub> LEvents_A_B_I \<^esub>  LPIntruder"
 
-animate_sec NSLPK3
+animate_sec_sound NSLPK3
 
 (*
 Reachability:

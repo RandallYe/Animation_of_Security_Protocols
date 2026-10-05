@@ -790,6 +790,33 @@ definition is_start :: "('a::{len,typerep}, 'n::{len,typerep}, 'k::{len,typerep}
 definition is_end :: "('a::{len,typerep}, 'n::{len,typerep}, 'k::{len,typerep}, 's::{len,typerep}, 'g::{len,typerep}, 'bm::{len,typerep}, 'bl::{len,typerep}) chan \<Rightarrow> bool" where
   "is_end e \<longleftrightarrow> (case e of sig_C (EndProt _ _ _ _) \<Rightarrow> True | _ \<Rightarrow> False)"
 
+text \<open> The intruder is the only principal that does not run the protocol, so an honest peer is
+  every other agent.  Sessions whose counterpart is the intruder are not agreement requirements,
+  since the intruder never starts a session and would otherwise make every completion a
+  counterexample. \<close>
+
+definition is_honest :: "('a::{len,typerep}) dagent \<Rightarrow> bool" where
+  "is_honest a \<longleftrightarrow> (case a of Intruder \<Rightarrow> False | _ \<Rightarrow> True)"
+
+text \<open> The signal a completed run @{text "EndProt s d ns nd"} must have been preceded by: the
+  counterpart @{text d} starting the same session with @{text s}, with the same two nonces in the
+  same order.  Comparing the participants is what makes this an authenticity check; matching on
+  @{text StartProt} alone would be satisfied by the completer's own start signal. \<close>
+
+definition matches_start :: "('a::{len,typerep}, 'n::{len,typerep}, 'k::{len,typerep}, 's::{len,typerep}, 'g::{len,typerep}, 'bm::{len,typerep}, 'bl::{len,typerep}) chan \<Rightarrow>
+    ('a::{len,typerep}, 'n::{len,typerep}, 'k::{len,typerep}, 's::{len,typerep}, 'g::{len,typerep}, 'bm::{len,typerep}, 'bl::{len,typerep}) chan \<Rightarrow> bool" where
+  "matches_start e_end e_start \<longleftrightarrow>
+     (case (e_end, e_start) of
+        (sig_C (EndProt s d ns nd), sig_C (StartProt s' d' ns' nd')) \<Rightarrow>
+          s' = d \<and> d' = s \<and> ns' = ns \<and> nd' = nd
+      | _ \<Rightarrow> False)"
+
+text \<open> A completed run of two honest agents, which is what the authenticity check requires a
+  matching start signal for. \<close>
+
+definition is_end_honest :: "('a::{len,typerep}, 'n::{len,typerep}, 'k::{len,typerep}, 's::{len,typerep}, 'g::{len,typerep}, 'bm::{len,typerep}, 'bl::{len,typerep}) chan \<Rightarrow> bool" where
+  "is_end_honest e \<longleftrightarrow> (case e of sig_C (EndProt s d _ _) \<Rightarrow> is_honest s \<and> is_honest d | _ \<Rightarrow> False)"
+
 definition is_terminate :: "('a::{len,typerep}, 'n::{len,typerep}, 'k::{len,typerep}, 's::{len,typerep}, 'g::{len,typerep}, 'bm::{len,typerep}, 'bl::{len,typerep}) chan \<Rightarrow> bool" where
   "is_terminate e \<longleftrightarrow> (case e of terminate_C () \<Rightarrow> True | _ \<Rightarrow> False)"
 
@@ -818,12 +845,23 @@ definition check_corr_violation :: "nat \<Rightarrow> nat \<Rightarrow> ('e, 's)
   "check_corr_violation n mx P mon re =
      checks n mx P (\<lambda>tr. tr \<noteq> [] \<and> re (last tr) \<and> \<not> (\<exists>e\<in>set (butlast tr). mon e))"
 
-definition "check_authenticity n mx P = check_corr_violation n mx P is_start is_end"
+text \<open> A correspondence violation whose trigger is related to the last event, so that the two
+  participants (and not just the kind of signal) can be compared.  The relation parameter is called
+  @{text rel} and not @{text matches}: the name @{text matches} collides with the implicit-structure
+  syntax of the imported ITree/UTP context, and Isabelle then rejects it as a bound variable with
+  ``Illegal reference to implicit structure''. \<close>
+
+definition check_auth_violation :: "nat \<Rightarrow> nat \<Rightarrow> ('e, 's) itree \<Rightarrow> ('e \<Rightarrow> 'e \<Rightarrow> bool) \<Rightarrow> ('e \<Rightarrow> bool) \<Rightarrow> 'e list set" where
+  "check_auth_violation n mx P rel re =
+     checks n mx P (\<lambda>tr. tr \<noteq> [] \<and> re (last tr) \<and> \<not> (\<exists>e\<in>set (butlast tr). rel (last tr) e))"
+
+definition "check_authenticity n mx P = check_auth_violation n mx P matches_start is_end_honest"
 
 text \<open> @{text check_leak} finds every explored trace that leaks a message,
   @{text check_sig} every trace with a claim/start/end signal, and
-  @{text check_authenticity} every trace that completes a run (@{text EndProt})
-  without an initiating signal (@{text StartProt}) before it.  All of them are
+  @{text check_authenticity} every trace in which two honest agents complete a run
+  @{text "EndProt s d ns nd"} although the counterpart never started that session, that is,
+  without a matching @{text "StartProt d s ns nd"} before it.  All of them are
   executable and return their counterexamples. \<close>
 
 lemma check_leak_sound:
@@ -945,12 +983,12 @@ generate_file \<open>code/simulate/Sound.hs\<close> = \<open>
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE FlexibleContexts #-}
 module Sound (runSound) where
-import Interaction_Trees (Itree)
+import Interaction_Trees (Itree(..), pdom, pfun_app)
 import Prelude
 import qualified Prelude
 import Arith (nat_of_integer)
 import qualified Set
-import Sec_Animation (explore, check_leak, check_sig, check_terminate, check_authenticity)
+import Sec_Animation (explore, check_leak, check_terminate, check_authenticity)
 import System.Environment (getArgs)
 import System.IO (hSetBuffering, stdin, stdout, BufferMode(NoBuffering, LineBuffering))
 import System.IO.Error (tryIOError)
@@ -985,7 +1023,7 @@ promptNat label def = do
 -- | Ask for the visible-event bound n and the internal-step bound mx.
 askBounds :: Prelude.IO (Prelude.Integer, Prelude.Integer)
 askBounds = do
-  n <- promptNat "Visible-event bound n (bound on the number of visible events)" (Prelude.fst defaultBounds)
+  n <- promptNat "Visible-event bound n (bound on the number of visible events or trace length)" (Prelude.fst defaultBounds)
   mx <- promptNat "Internal-step bound mx (bound on internal steps between visible events)" (Prelude.snd defaultBounds)
   return (n, mx)
 
@@ -1003,6 +1041,59 @@ report label ts = case ts of
     Prelude.putStrLn ("*** " ++ Prelude.show (Prelude.length ts) ++ " " ++ label ++ " counterexample(s) found ***")
     Prelude.mapM_ (\tr -> Prelude.putStrLn ("  " ++ Prelude.show tr)) ts
 
+-- | Print the trace followed so far.
+reportTrace :: (Prelude.Show e) => [e] -> Prelude.IO ()
+reportTrace tr = Prelude.putStrLn ("Trace: " ++ Prelude.show tr)
+
+-- | Print the enabled events of the current state, numbered.
+showEvents :: (Prelude.Show e) => [e] -> Prelude.IO ()
+showEvents es =
+  Prelude.mapM_ (\(i, e) -> Prelude.putStrLn ("  (" ++ Prelude.show i ++ ") " ++ Prelude.show e))
+    (Prelude.zip [(1 :: Prelude.Int) ..] es)
+
+-- | Step through the animation manually: at every visible state the enabled
+-- events are listed and the user chooses one by its number, and "q" stops.
+-- The internal-step bound is the fuel spent between two visible events, and
+-- the visible-event bound caps the length of the trace.
+manualExplore :: forall e s. (Eq e, Prelude.Show e) =>
+  Prelude.Integer -> Prelude.Integer -> [e] -> Itree e s -> Prelude.IO ()
+manualExplore n mx = go mx
+  where
+    go :: Prelude.Integer -> [e] -> Itree e s -> Prelude.IO ()
+    go fuel tr p
+      | Prelude.toInteger (Prelude.length tr) >= n = done "Visible-event bound reached." tr
+      | otherwise = case p of
+          Ret _ -> done "Terminated." tr
+          Sil q -> if fuel <= 0
+            then done "Divergent (internal-step budget exhausted)." tr
+            else go (fuel - 1) tr q
+          Vis f -> do
+            let es = setToList (pdom f)
+            if Prelude.null es
+              then done "Deadlocked." tr
+              else do
+                Prelude.putStrLn "Events:"
+                showEvents es
+                Prelude.putStr ("[Choose: 1-" ++ Prelude.show (Prelude.length es) ++ ", q to quit]: ")
+                r <- tryIOError Prelude.getLine
+                case r of
+                  Prelude.Left _ -> done "" tr
+                  Prelude.Right s
+                    | s `Prelude.elem` ["q", "Q"] -> done "Manual exploration terminated." tr
+                    | otherwise -> case parseNat s of
+                        Prelude.Just v
+                          | v >= 1 && v <= Prelude.toInteger (Prelude.length es) -> do
+                              let e = es Prelude.!! (Prelude.fromInteger v - 1)
+                              Prelude.putStrLn ("Chosen: " ++ Prelude.show e)
+                              go mx (tr Prelude.++ [e]) (pfun_app f e)
+                        _ -> do
+                          Prelude.putStrLn "No parse"
+                          go fuel tr p
+    done :: Prelude.String -> [e] -> Prelude.IO ()
+    done msg tr = do
+      Prelude.putStrLn msg
+      reportTrace tr
+
 -- | Run the sound bounded exploration and checking of an ITree.
 -- The bounds are the first two command-line arguments if given, otherwise the
 -- user is prompted for n and mx; the check is then chosen interactively.
@@ -1018,21 +1109,21 @@ runSound p = do
     _ -> askBounds
   let nn = nat_of_integer n
       mm = nat_of_integer mx
-  Prelude.putStrLn "Which check?"
+  Prelude.putStrLn "Which check? (5 steps through the animation manually)"
   Prelude.putStrLn "  1) enumerate all traces within the bounds"
   Prelude.putStrLn "  2) secrecy: traces containing a Leak event"
-  Prelude.putStrLn "  3) authenticity stages: traces containing a Sig event"
-  Prelude.putStrLn "  4) completion: traces containing a Terminate event"
-  Prelude.putStrLn "  5) authenticity: completed runs (EndProt) with no StartProt before them"
+  Prelude.putStrLn "  3) completion: traces containing a Terminate event"
+  Prelude.putStrLn "  4) authenticity: a completed run whose counterpart never started it"
+  Prelude.putStrLn "  5) manual exploration: choose one event at a time"
   Prelude.putStr "Check [1]: "
   c <- tryIOError Prelude.getLine
   case c of
     Prelude.Left _ -> showTraces (setToList (explore nn mm mm p))
     Prelude.Right l -> case l of
       "2" -> report "Leak" (setToList (check_leak nn mm p))
-      "3" -> report "Sig" (setToList (check_sig nn mm p))
-      "4" -> report "Terminate" (setToList (check_terminate nn mm p))
-      "5" -> report "authenticity" (setToList (check_authenticity nn mm p))
+      "3" -> report "Terminate" (setToList (check_terminate nn mm p))
+      "4" -> report "authenticity" (setToList (check_authenticity nn mm p))
+      "5" -> manualExplore n mx [] p
       _ -> showTraces (setToList (explore nn mm mm p))
 \<close>
 

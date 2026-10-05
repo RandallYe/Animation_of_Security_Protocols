@@ -8,10 +8,12 @@ This folder contains the Isabelle/HOL theories from which sound animators for se
     - [Web interface](#web-interface)
   - [Third stage (proven soundness)](#third-stage-proven-soundness)
 - [How to load theories in Isabelle/HOL and generate Haskell code?](#how-to-load-theories-in-isabellehol-and-generate-haskell-code)
-- [How to run animators](#how-to-run-animators)
 - [Illustrations](#illustrations)
+  - [Bounded exploration](#bounded-exploration)
   - [Manual exploration](#manual-exploration)
-  - [User-guided verification (manual + automatic)](#user-guided-verification-manual--automatic)
+  - [Checking secrecy](#checking-secrecy)
+  - [Checking authenticity](#checking-authenticity)
+  - [Bounded verdicts](#bounded-verdicts)
 
 # What's included in the repo?
 The folder structure is shown below.
@@ -120,7 +122,7 @@ The sound exploration is in [Sec_Animation.thy](./Sec_Animation.thy):
 + `btr` is the inductive characterisation of the same traces, with `explore_iff_btr` connecting the two.
 + The theorem `explore_sound` states that every explored trace is a genuine trace of the ITree, witnessed by the operational semantics `trace_to`, and respects the bound; `explore_complete` states that every genuine trace of bounded length is explored once the internal-step bound is large enough. The search therefore neither invents nor misses a trace.
 + `feasible` and `reaches` decide whether a given trace is feasible and whether a set of events can be reached under a monitor; `reaches_sound` states that a reported trace really exists in the model.
-+ `checks n mx P pred` filters the exploration by a property of traces, so its result is the set of counterexamples and its verdict is the emptiness of that set. `checks_sound` guarantees that no counterexample is spurious and `checks_complete` that none is missed within the bounds. The security-relevant checks are `check_leak`, `check_leak_msg`, `check_sig`, `check_terminate`, `check_corr`, `check_corr_violation` and `check_authenticity` (secrecy and authenticity are phrased as the presence or absence of a monitor event before a reachability event).
++ `checks n mx P pred` filters the exploration by a property of traces, so its result is the set of counterexamples and its verdict is the emptiness of that set. `checks_sound` guarantees that no counterexample is spurious and `checks_complete` that none is missed within the bounds. The security-relevant checks are `check_leak`, `check_leak_msg`, `check_sig`, `check_terminate`, `check_corr`, `check_corr_violation` and `check_authenticity`. Authenticity is a correspondence check on the participants, not just on the kind of signal: `matches_start` relates a completed run `EndProt s d ns nd` of two honest agents to the counterpart's earlier `StartProt d s ns nd`, and `check_auth_violation` generalises that to any such relation.
 + `state_kind` (with `skind = SContinues | STerminated | SDeadlocked | SDivergent`) classifies how a run ends, replacing the deadlock, termination and divergence reporting of the hand-written explorer. It follows a trace with an explicit fuel bound `(length tr + 1) * (mx + 1)` so that it is structurally recursive; the equations extracted to Haskell are `follow_fuel_code` and `stop_kind_code`.
 + The new Isar command `animate_sec_sound` runs this proved exploration, for example `animate_sec_sound NSPK3` in [NSPK3.thy](./NSPKP/NSPK3_v2/NSPK3.thy), alongside the first-stage `animate_sec`.
 
@@ -131,175 +133,158 @@ In short, the third stage keeps the two earlier frameworks but makes the automat
 # How to load theories in Isabelle/HOL and generate Haskell code?
 [SETUP.md](./SETUP.md) records how to install the Isabelle/HOL and GHC environments; the Web UI environment is in the [animation-web-ui README](../animation-web-ui/README.md).
 
-- Step 1: install the patched Isabelle/HOL from the [Isabelle/UTP website](https://isabelle-utp.york.ac.uk/download) to get it ready for the development using Isabelle/UTP
-- Step 2: run `$ ./bin/isabelle jedit -l Z_Machines` inside the installed Isabelle/HOL
-- Step 3: load the theory for the protocols such as [NSPK3.thy](./NSPKP/NSPK3/NSPK3.thy) to Isabelle/HOL
-- Step 4: navigate to a line starting with `animate_sec` such as `animate_sec NSPK3`, and check the log on the "Output" tab (usually on the bottom of Isabell). Usually, it will show the log below
+- Open Isabelle/jEdit
+
+```
+$   /path/to/Tools/Isabelle2025-CyPhyAssure/bin/isabelle jedit \
+     -d /path/to/Animation_of_Security_Protocols/User_Guided_Verification_Security \
+     -l ITree_UTP &
+```
+
+- Load the theory for a protocol such as [NSPK3.thy](./NSPKP/NSPK3/NSPK3.thy) to Isabelle/HOL
+
+- Navigate to a line starting with `animate_sec` such as `animate_sec NSPK3`, and check the log on the "Output" tab (usually on the bottom of Isabell). Usually, it will show the log below
+
 ```
 See theory exports 
 Compiling animation... 
 See theory exports 
 Start animation
 ```
-- Step 5: this means the code generation succeeded. Now you can click "Start animation" to launch the animator and start the animation
+- This means the code generation succeeded. Now you can click "Start animation" to launch the animator and start the animation
 
-The third stage adds the sound variant of the command, `animate_sec_sound` (for example `animate_sec_sound NSPK3` in [NSPK3.thy](./NSPKP/NSPK3_v2/NSPK3.thy)), which explores the animation soundly and automatically rather than interacting with it manually.
-
-# How to run animators
-Alternatively, you don't need the Isabelle/HOL to just run the animator. You need the [GHC](https://www.haskell.org/ghc/) compiler to compile Haskell code.
-
-The folder if its name starts with "Animator", this folder contains the Haskell code for the animation. You can compile it using the `ghc` command, or debug it using the `ghci` command, shown below.
-
-```
-$ ghc Simulation.hs
-$ ghci Simulation.hs
-$ ./Simulation
-```
+The third stage adds the sound variant of the command, `animate_sec_sound` (for example `animate_sec_sound NSPK3` in [NSPK3.thy](./NSPKP/NSPK3_v2/NSPK3.thy)), which runs the proved bounded exploration and its checks automatically, and can also step through the animation manually one event at a time; see [Illustrations](#illustrations).
 
 # Illustrations
 
+The illustrations below come from the sound interface of the third stage: `animate_sec_sound` first asks for the bounds and then what to do, and every trace it prints is a trace of the search proved sound and complete in [Sec_Animation.thy](./Sec_Animation.thy). The web interface in [`animation-web-ui`](../animation-web-ui/README.md) drives the same search. Long trace lines are wrapped here to fit the page; the interface prints each trace on a single line.
+
+## Bounded exploration
+
+With a visible-event bound of `2` and an internal-step bound of `2`, option 1 enumerates all the traces within those bounds:
+
+```
+Sound bounded exploration / checking (search extracted from Isabelle/HOL)
+Visible-event bound n (bound on the number of visible events or trace length) [3]: 2
+Internal-step bound mx (bound on internal steps between visible events) [3]: 2
+Which check? (5 steps through the animation manually)
+  1) enumerate all traces within the bounds
+  2) secrecy: traces containing a Leak event
+  3) completion: traces containing a Terminate event
+  4) authenticity: a completed run whose counterpart never started it
+  5) manual exploration: choose one event at a time
+Check [1]: 1
+*** 17 traces within the bounds ***
+  []
+  [Recv_C (Intruder,(Intruder,(Agent (Nmk (Nat 1)),
+    MAEnc (MPair (MNon (Nmk (Nat 2))) (MAg Intruder)) (MK (Kp (Nmk (Nat 1))))))),
+    Env_C (Agent (Nmk (Nat 0)),Agent (Nmk (Nat 1)))]
+  [Recv_C (Intruder,(Intruder,(Agent (Nmk (Nat 1)),
+    MAEnc (MPair (MNon (Nmk (Nat 2))) (MAg Intruder)) (MK (Kp (Nmk (Nat 1))))))),
+    Env_C (Agent (Nmk (Nat 0)),Intruder)]
+  [Recv_C (Intruder,(Intruder,(Agent (Nmk (Nat 1)),
+    MAEnc (MPair (MNon (Nmk (Nat 2))) (MAg Intruder)) (MK (Kp (Nmk (Nat 1))))))),
+    Sig_C (ClaimSecret (Agent (Nmk (Nat 1))) (Nmk (Nat 1)) (Set [Intruder]))]
+```
+
+(All 17 traces are printed; the first four are shown here.)
+
 ## Manual exploration
 
-```
-Starting ITree Animation...
-Events:
- (1) Env [Alice] Bob;
- (2) Env [Alice] Intruder;
- (3) Recv [Bob<=Intruder] {<N Intruder, Alice>}_PK Bob;
- (4) Recv [Bob<=Intruder] {<N Intruder, Intruder>}_PK Bob;
-
-[Choose: 1-4]: 1
-Env_C (Alice,Bob)
-Events:
- (1) Recv [Bob<=Intruder] {<N Intruder, Alice>}_PK Bob;
- (2) Recv [Bob<=Intruder] {<N Intruder, Intruder>}_PK Bob;
- (3) Sig ClaimSecret Alice (N Alice) (Set [ Bob ]);
-
-[Choose: 1-3]: 3
-Sig_C (ClaimSecret Alice (N Alice) (Set [Bob]))
-Events:
- (1) Send [Alice=>Intruder] {<N Alice, Alice>}_PK Bob;
- (2) Recv [Bob<=Intruder] {<N Intruder, Alice>}_PK Bob;
- (3) Recv [Bob<=Intruder] {<N Intruder, Intruder>}_PK Bob;
-
-[Choose: 1-3]: 1
-Send_C (Alice,(Intruder,MEnc (MCmp (MNon (N Alice)) (MAg Alice)) (PK Bob)))
-Events:
- (1) Recv [Bob<=Intruder] {<N Alice, Alice>}_PK Bob;
- (2) Recv [Bob<=Intruder] {<N Intruder, Alice>}_PK Bob;
- (3) Recv [Bob<=Intruder] {<N Intruder, Intruder>}_PK Bob;
-
-[Choose: 1-3]: 1
-Recv_C (Intruder,(Bob,MEnc (MCmp (MNon (N Alice)) (MAg Alice)) (PK Bob)))
-Events:
- (1) Sig ClaimSecret Bob (N Bob) (Set [ Alice ]);
-
-[Choose: 1-1]:
-Sig_C (ClaimSecret Bob (N Bob) (Set [Alice]))
-Events:
- (1) Sig StartProt Bob Alice (N Alice) (N Bob);
-
-[Choose: 1-1]:
-Sig_C (StartProt Bob Alice (N Alice) (N Bob))
-Events:
- (1) Send [Bob=>Intruder] {<N Alice, N Bob>}_PK Alice;
-
-[Choose: 1-1]:
-Send_C (Bob,(Intruder,MEnc (MCmp (MNon (N Alice)) (MNon (N Bob))) (PK Alice)))
-Events:
- (1) Recv [Alice<=Intruder] {<N Alice, N Bob>}_PK Alice;
-
-[Choose: 1-1]:
-Recv_C (Intruder,(Alice,MEnc (MCmp (MNon (N Alice)) (MNon (N Bob))) (PK Alice)))
-Events:
- (1) Sig StartProt Alice Bob (N Alice) (N Bob);
-
-[Choose: 1-1]:
-Sig_C (StartProt Alice Bob (N Alice) (N Bob))
-Events:
- (1) Send [Alice=>Intruder] {N Bob}_PK Bob;
-
-[Choose: 1-1]:
-Send_C (Alice,(Intruder,MEnc (MNon (N Bob)) (PK Bob)))
-Events:
- (1) Sig EndProt Alice Bob (N Alice) (N Bob);
- (2) Recv [Bob<=Intruder] {N Bob}_PK Bob;
-
-[Choose: 1-2]: 1
-Sig_C (EndProt Alice Bob (N Alice) (N Bob))
-Events:
- (1) Recv [Bob<=Intruder] {N Bob}_PK Bob;
-
-[Choose: 1-1]: 1
-Recv_C (Intruder,(Bob,MEnc (MNon (N Bob)) (PK Bob)))
-Events:
- (1) Sig EndProt Bob Alice (N Alice) (N Bob);
-
-[Choose: 1-1]:
-Sig_C (EndProt Bob Alice (N Alice) (N Bob))
-Events:
- (1) Terminate;
-
-[Choose: 1-1]:
-Terminate_C ()
-Successfully Terminated: ()
-Trace: [Env [Alice] Bob, 
-    Sig ClaimSecret Alice (N Alice) (Set [ Bob ]), 
-    Send [Alice=>Intruder] {<N Alice, Alice>}_PK Bob, 
-    Recv [Bob<=Intruder] {<N Alice, Alice>}_PK Bob, 
-    Sig ClaimSecret Bob (N Bob) (Set [ Alice ]), 
-    Sig StartProt Bob Alice (N Alice) (N Bob), 
-    Send [Bob=>Intruder] {<N Alice, N Bob>}_PK Alice, 
-    Recv [Alice<=Intruder] {<N Alice, N Bob>}_PK Alice, 
-    Sig StartProt Alice Bob (N Alice) (N Bob), 
-    Send [Alice=>Intruder] {N Bob}_PK Bob, 
-    Sig EndProt Alice Bob (N Alice) (N Bob), 
-    Recv [Bob<=Intruder] {N Bob}_PK Bob, 
-    Sig EndProt Bob Alice (N Alice) (N Bob), 
-    Terminate, 
-]
-```
-
-## User-guided verification (manual + automatic)
+Option 5 is the step-by-step animation: at every state the enabled events are listed and the user chooses one by its number, and `q` stops. With bounds `4` and `3`:
 
 ```
-Starting ITree Animation...
+Check [1]: 5
 Events:
- (1) Env [Alice] Bob;
- (2) Env [Alice] Intruder;
- (3) Recv [Bob<=Intruder] {<N Intruder, Alice>}_PK Bob;
- (4) Recv [Bob<=Intruder] {<N Intruder, Intruder>}_PK Bob;
-
-[Choose: 1-4]: 2
-Env_C (Alice,Intruder)
+  (1) Env_C (Agent (Nmk (Nat 0)),Agent (Nmk (Nat 1)))
+  (2) Env_C (Agent (Nmk (Nat 0)),Intruder)
+  (3) Recv_C (Intruder,(Intruder,(Agent (Nmk (Nat 1)),
+    MAEnc (MPair (MNon (Nmk (Nat 2))) (MAg (Agent (Nmk (Nat 0))))) (MK (Kp (Nmk (Nat 1)))))))
+  (4) Recv_C (Intruder,(Intruder,(Agent (Nmk (Nat 1)),
+    MAEnc (MPair (MNon (Nmk (Nat 2))) (MAg Intruder)) (MK (Kp (Nmk (Nat 1)))))))
+[Choose: 1-4, q to quit]: 2
+Chosen: Env_C (Agent (Nmk (Nat 0)),Intruder)
 Events:
- (1) Recv [Bob<=Intruder] {<N Intruder, Alice>}_PK Bob;
- (2) Recv [Bob<=Intruder] {<N Intruder, Intruder>}_PK Bob;
- (3) Sig ClaimSecret Alice (N Alice) (Set [ Intruder ]);
-
-[Choose: 1-3]: 3
-Sig_C (ClaimSecret Alice (N Alice) (Set [Intruder]))
+  (1) Recv_C (Intruder,(Intruder,(Agent (Nmk (Nat 1)),
+    MAEnc (MPair (MNon (Nmk (Nat 2))) (MAg (Agent (Nmk (Nat 0))))) (MK (Kp (Nmk (Nat 1)))))))
+  (2) Recv_C (Intruder,(Intruder,(Agent (Nmk (Nat 1)),
+    MAEnc (MPair (MNon (Nmk (Nat 2))) (MAg Intruder)) (MK (Kp (Nmk (Nat 1)))))))
+  (3) Sig_C (ClaimSecret (Agent (Nmk (Nat 0))) (Nmk (Nat 0)) (Set [Intruder]))
+[Choose: 1-3, q to quit]: 2
+Chosen: Recv_C (Intruder,(Intruder,(Agent (Nmk (Nat 1)),
+  MAEnc (MPair (MNon (Nmk (Nat 2))) (MAg Intruder)) (MK (Kp (Nmk (Nat 1)))))))
 Events:
- (1) Send [Alice=>Intruder] {<N Alice, Alice>}_PK Intruder;
- (2) Recv [Bob<=Intruder] {<N Intruder, Alice>}_PK Bob;
- (3) Recv [Bob<=Intruder] {<N Intruder, Intruder>}_PK Bob;
+  (1) Sig_C (ClaimSecret (Agent (Nmk (Nat 1))) (Nmk (Nat 1)) (Set [Intruder]))
+  (2) Sig_C (ClaimSecret (Agent (Nmk (Nat 0))) (Nmk (Nat 0)) (Set [Intruder]))
+[Choose: 1-2, q to quit]: q
+Manual exploration terminated.
+Trace: [Env_C (Agent (Nmk (Nat 0)),Intruder),Recv_C (Intruder,(Intruder,(Agent (Nmk (Nat 1)),
+  MAEnc (MPair (MNon (Nmk (Nat 2))) (MAg Intruder)) (MK (Kp (Nmk (Nat 1)))))))]
+```
 
-[Choose: 1-3]: AReach 15 %Leak N Bob%
-AReach 15,  %Leak N Bob%
-Reachability by Auto: 15
-  Events for reachability check: ["Leak N Bob"]
-  Events for monitor: []
-..........................................................................................
-*** These events ["Leak N Bob"] are reached! ***
-Trace: [Env [Alice] Intruder, 
-    Sig ClaimSecret Alice (N Alice) (Set [ Intruder ]),
-    Send [Alice=>Intruder] {<N Alice, Alice>}_PK Intruder, 
-    Recv [Bob<=Intruder] {<N Alice, Alice>}_PK Bob, 
-    Sig ClaimSecret Bob (N Bob) (Set [ Alice ]), 
-    Sig StartProt Bob Alice (N Alice) (N Bob), 
-    Send [Bob=>Intruder] {<N Alice, N Bob>}_PK Alice, 
-    Recv [Alice<=Intruder] {<N Alice, N Bob>}_PK Alice, 
-    Sig StartProt Alice Intruder (N Alice) (N Bob), 
-    Send [Alice=>Intruder] {N Bob}_PK Intruder, 
-]
+The user's answers are shown after the prompts. A run can also end by itself, in which case the interface reports `Terminated.`, `Deadlocked.` or `Divergent (internal-step budget exhausted).` before printing the trace.
+
+## Checking secrecy
+
+With bounds `12` and `5`, option 2 finds the classic NSPK3 man-in-the-middle attack, in which the intruder runs the protocol with both agents and learns agent 1's nonce. Five counterexamples are found and all of them are printed; the first is:
+
+```
+Check [1]: 2
+*** 5 Leak counterexample(s) found ***
+  [Env_C (Agent (Nmk (Nat 0)),Intruder),
+    Sig_C (ClaimSecret (Agent (Nmk (Nat 0))) (Nmk (Nat 0)) (Set [Intruder])),
+    Send_C (Agent (Nmk (Nat 0)),(Intruder,(Intruder,
+    MAEnc (MPair (MNon (Nmk (Nat 0))) (MAg (Agent (Nmk (Nat 0))))) (MK (Kp (Nmk (Nat 2))))))),
+    Recv_C (Intruder,(Intruder,(Agent (Nmk (Nat 1)),
+    MAEnc (MPair (MNon (Nmk (Nat 0))) (MAg (Agent (Nmk (Nat 0))))) (MK (Kp (Nmk (Nat 1))))))),
+    Sig_C (ClaimSecret (Agent (Nmk (Nat 1))) (Nmk (Nat 1)) (Set [Agent (Nmk (Nat 0))])),
+    Sig_C (StartProt (Agent (Nmk (Nat 1))) (Agent (Nmk (Nat 0))) (Nmk (Nat 0)) (Nmk (Nat 1))),
+    Send_C (Agent (Nmk (Nat 1)),(Intruder,(Agent (Nmk (Nat 0)),
+    MAEnc (MPair (MNon (Nmk (Nat 0))) (MNon (Nmk (Nat 1)))) (MK (Kp (Nmk (Nat 0))))))),
+    Recv_C (Intruder,(Intruder,(Agent (Nmk (Nat 0)),
+    MAEnc (MPair (MNon (Nmk (Nat 0))) (MNon (Nmk (Nat 1)))) (MK (Kp (Nmk (Nat 0))))))),
+    Sig_C (StartProt (Agent (Nmk (Nat 0))) Intruder (Nmk (Nat 0)) (Nmk (Nat 1))),
+    Send_C (Agent (Nmk (Nat 0)),(Intruder,(Intruder,
+    MAEnc (MNon (Nmk (Nat 1))) (MK (Kp (Nmk (Nat 2))))))),Recv_C (Intruder,(Intruder,
+    (Agent (Nmk (Nat 1)),MAEnc (MNon (Nmk (Nat 1))) (MK (Kp (Nmk (Nat 1))))))),
+    Leak_C (MNon (Nmk (Nat 1)))]
+```
+
+## Checking authenticity
+
+Option 4 looks for the failure that the `AReach ... # ...` specifications in the theories describe: an honest agent completing a run whose counterpart never started the same session. With bounds `15` and `100`, NSPK3 has eleven such counterexamples; the first is the classic man-in-the-middle, in which agent 1 finishes a session with agent 0 although agent 0 started a session with the intruder instead:
+
+```
+Check [1]: 4
+*** 11 authenticity counterexample(s) found ***
+  [Env_C (Agent (Nmk (Nat 0)),Intruder),
+    Sig_C (ClaimSecret (Agent (Nmk (Nat 0))) (Nmk (Nat 0)) (Set [Intruder])),
+    Send_C (Agent (Nmk (Nat 0)),(Intruder,(Intruder,
+    MAEnc (MPair (MNon (Nmk (Nat 0))) (MAg (Agent (Nmk (Nat 0))))) (MK (Kp (Nmk (Nat 2))))))),
+    Recv_C (Intruder,(Intruder,(Agent (Nmk (Nat 1)),
+    MAEnc (MPair (MNon (Nmk (Nat 0))) (MAg (Agent (Nmk (Nat 0))))) (MK (Kp (Nmk (Nat 1))))))),
+    Sig_C (ClaimSecret (Agent (Nmk (Nat 1))) (Nmk (Nat 1)) (Set [Agent (Nmk (Nat 0))])),
+    Sig_C (StartProt (Agent (Nmk (Nat 1))) (Agent (Nmk (Nat 0))) (Nmk (Nat 0)) (Nmk (Nat 1))),
+    Send_C (Agent (Nmk (Nat 1)),(Intruder,(Agent (Nmk (Nat 0)),
+    MAEnc (MPair (MNon (Nmk (Nat 0))) (MNon (Nmk (Nat 1)))) (MK (Kp (Nmk (Nat 0))))))),
+    Recv_C (Intruder,(Intruder,(Agent (Nmk (Nat 0)),
+    MAEnc (MPair (MNon (Nmk (Nat 0))) (MNon (Nmk (Nat 1)))) (MK (Kp (Nmk (Nat 0))))))),
+    Sig_C (StartProt (Agent (Nmk (Nat 0))) Intruder (Nmk (Nat 0)) (Nmk (Nat 1))),
+    Send_C (Agent (Nmk (Nat 0)),(Intruder,(Intruder,
+    MAEnc (MNon (Nmk (Nat 1))) (MK (Kp (Nmk (Nat 2))))))),Recv_C (Intruder,(Intruder,
+    (Agent (Nmk (Nat 1)),MAEnc (MNon (Nmk (Nat 1))) (MK (Kp (Nmk (Nat 1))))))),
+    Leak_C (MNon (Nmk (Nat 1))),
+    Sig_C (EndProt (Agent (Nmk (Nat 0))) Intruder (Nmk (Nat 0)) (Nmk (Nat 1))),
+    Sig_C (EndProt (Agent (Nmk (Nat 1))) (Agent (Nmk (Nat 0))) (Nmk (Nat 0)) (Nmk (Nat 1)))]
+```
+
+(All eleven are printed; the first is shown here. The same check on NSLPK3, Lowe's fix, reports no authenticity counterexample at these bounds.)
+
+## Bounded verdicts
+
+A check that reports nothing is a *bounded* negative result: there is no counterexample within the bounds, but one may still exist beyond them. With bounds `12` and `5`:
+
+```
+Check [1]: 3
+No Terminate counterexample within the bounds.
 ```
