@@ -160,7 +160,7 @@ definition LPIntruder0:: "dagent \<Rightarrow> dnonce \<Rightarrow> dmsg list \<
             \<comment> \<open> Intruder can hear anything Alice and Bob can send \<close>
             (A, I, B, m) \<leftarrow> inp_in hear (set (LA_I_snd_msg Alice (NonceMap(Alice)) @ LB_I_snd_msg Bob (NonceMap(Bob))));
             \<comment> \<open> Intruder can fake any message (it can infer) to the target \<close>
-            Ret (True, breakm (List.insert m knows), sec)}
+            Ret (True, breakl (List.insert m knows), sec)}
     \<box> \<^cancel>\<open>do { inp_in fake (set [(A, I, B, m'). A \<leftarrow> [I], B \<leftarrow> removeAll I AllAgents', 
           m' \<leftarrow> (buildm (knows))]); Ret (True, knows, sec) }\<close>
       do {  

@@ -4,8 +4,8 @@ Haskell module are updated specifically for security protocols.
 \<close>
 
 theory Sec_Animation
-  imports Interaction_Trees.ITree_Extraction
-  keywords "animate_sec" :: "thy_defn"
+  imports Interaction_Trees.ITree_Extraction Sec_Messages
+  keywords "animate_sec" :: "thy_defn" and "animate_sec_sound" :: "thy_defn"
 begin
 
 generate_file \<open>code/simulate/Simulate.hs\<close> = \<open>
@@ -552,6 +552,490 @@ getChannelList4Property :: [String]
 getChannelList4Property = ["Leak", "[Sig]ClaimSecret", "[Sig]StartProt", "[Sig]EndProt", "Terminate", "Deadlocked", "Divergent"]
 \<close>
 
+subsection \<open> Sound bounded exploration \<close>
+
+text \<open>
+  The terminal animator and the browser interface both search the event space by
+  running the hand-written Haskell functions @{verbatim simulate_cnt} and
+  @{verbatim explore_tree_cnt}.  Those functions are only trusted, not proved:
+  nothing rules out a search that silently misses a branch of the event tree.
+
+  The definitions below replace that trusted search by a search that is defined
+  in Isabelle/HOL.  @{text explore} returns, for a bounded number of visible
+  events and internal steps, \emph{all} traces of an ITree; it is executable and
+  its Haskell rendering is obtained from these definitions by the code
+  generator.  @{text btr} is the inductive characterisation of the same traces,
+  and the two theorems @{text explore_sound} and @{text explore_complete} state
+  that @{text explore} neither invents nor misses a trace:
+  \begin{itemize}
+    \item @{text explore_sound}: every explored trace is a trace of the ITree,
+      witnessed by the operational semantics @{text trace_to};
+    \item @{text explore_complete}: every trace of the ITree of bounded length
+      is explored, provided the bound on internal steps is large enough.
+  \end{itemize}
+  The bounds are written with \<open>0\<close>/\<open>Suc\<close> patterns, which is convenient for
+  the proofs; arithmetic code equations are installed further below because
+  \<^typ>\<open>nat\<close> is translated to Haskell as an opaque integer.
+\<close>
+
+fun explore :: "nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> ('e, 's) itree \<Rightarrow> 'e list set" where
+  "explore 0 mx t P = {[]}"
+| "explore (Suc n) mx t (Ret x) = {[]}"
+| "explore (Suc n) mx 0 (Sil Q) = {[]}"
+| "explore (Suc n) mx (Suc t) (Sil Q) = explore (Suc n) mx t Q"
+| "explore (Suc n) mx t (Vis F) =
+     {[]} \<union> \<Union> (((\<lambda>e. (#) e ` explore n mx mx (F e)) ` pdom F))"
+
+text \<open> The inductive characterisation of the explored traces: \<open>n\<close> is the
+  remaining number of visible events, \<open>mx\<close> the internal-step budget that is
+  granted again after each visible event, and \<open>t\<close> the remaining part of that
+  budget at the current state. \<close>
+
+inductive btr :: "nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> ('e, 's) itree \<Rightarrow> 'e list \<Rightarrow> bool" where
+  btr_stop: "btr n mx t P []"
+| btr_Sil: "btr (Suc n) mx t P tr \<Longrightarrow> btr (Suc n) mx (Suc t) (Sil P) tr"
+| btr_Vis: "e \<in> pdom F \<Longrightarrow> btr n mx mx (F e) tr \<Longrightarrow> btr (Suc n) mx t (Vis F) (e # tr)"
+
+lemma Nil_in_explore [simp]: "[] \<in> explore n mx t P"
+  by (induct n mx t P rule: explore.induct) auto
+
+lemma btr_imp_explore: "btr n mx t P tr \<Longrightarrow> tr \<in> explore n mx t P"
+  by (induct rule: btr.induct) (auto simp: image_iff)
+
+lemma explore_imp_btr: "tr \<in> explore n mx t P \<Longrightarrow> btr n mx t P tr"
+  by (induct n mx t P arbitrary: tr rule: explore.induct) (auto intro: btr.intros)
+
+lemma explore_iff_btr: "tr \<in> explore n mx t P \<longleftrightarrow> btr n mx t P tr"
+  by (auto intro: btr_imp_explore explore_imp_btr)
+
+lemma btr_nil [intro]: "btr n mx t P []"
+  by (rule btr_stop)
+
+lemma btr_mono: "btr n mx t P tr \<Longrightarrow> mx \<le> mx' \<Longrightarrow> t \<le> t' \<Longrightarrow> btr n mx' t' P tr"
+proof (induct arbitrary: mx' t' rule: btr.induct)
+  case (btr_stop n mx t P) then show ?case by (auto intro: btr.intros)
+next
+  case (btr_Sil n mx t P tr) then show ?case
+    by (cases t') (auto elim: btr.cases intro: btr.intros)
+next
+  case (btr_Vis e F n mx t tr) then show ?case by (auto intro: btr.intros)
+qed
+
+lemma btr_mono_n: "btr n mx t P tr \<Longrightarrow> n \<le> n' \<Longrightarrow> btr n' mx t P tr"
+proof (induct arbitrary: n' rule: btr.induct)
+  case (btr_stop n mx t P) then show ?case by (auto intro: btr.intros)
+next
+  case (btr_Sil n mx t P tr) then show ?case
+    by (cases n') (auto elim: btr.cases intro: btr.intros)
+next
+  case (btr_Vis e F n mx t tr) then show ?case
+    by (cases n') (auto elim: btr.cases intro: btr.intros)
+qed
+
+lemma btr_sound: "btr n mx t P tr \<Longrightarrow> length tr \<le> n \<and> (\<exists>P'. P \<midarrow>tr\<leadsto> P')"
+  by (induct rule: btr.induct) (auto intro: trace_to_Sil trace_to_Vis trace_to_Nil)
+
+text \<open> Every trace reported by the sound exploration is a genuine trace of the
+  model, and its length respects the bound. \<close>
+
+theorem explore_sound:
+  assumes "tr \<in> explore n mx mx P"
+  shows "length tr \<le> n \<and> (\<exists>P'. P \<midarrow>tr\<leadsto> P')"
+  using assms by (metis btr_sound explore_iff_btr)
+
+lemma trace_to_btr: "P \<midarrow>tr\<leadsto> P' \<Longrightarrow> \<exists>mx. btr (length tr) mx mx P tr"
+proof (induct rule: trace_to.induct)
+  case (trace_to_Nil P)
+  then show ?case by (intro exI[of _ 0]) (auto intro: btr.intros)
+next
+  case (trace_to_Sil P tr P')
+  then obtain mx where "btr (length tr) mx mx P tr" by blast
+  then show ?case
+  proof (cases tr)
+    case Nil
+    then show ?thesis by (intro exI[of _ 1]) (auto intro: btr.intros)
+  next
+    case (Cons e rest)
+    with \<open>btr (length tr) mx mx P tr\<close>
+    have "btr (Suc (length rest)) (Suc mx) mx P (e # rest)"
+      by (auto intro: btr_mono)
+    then show ?thesis
+      using Cons by (intro exI[of _ "Suc mx"]) (auto intro: btr.intros)
+  qed
+next
+  case (trace_to_Vis e F tr P')
+  then obtain mx where ih: "btr (length tr) mx mx (F e) tr" by blast
+  have dom: "e \<in> pdom F" using trace_to_Vis by blast
+  show ?case
+    by (intro exI[of _ mx]) (metis btr_Vis dom ih length_Cons)
+qed
+
+text \<open> Conversely, every genuine trace of the model is explored, provided the
+  internal-step budget is chosen large enough.  There is therefore neither a
+  missed branch nor a spurious counterexample in the bounded search. \<close>
+
+theorem explore_complete:
+  assumes "P \<midarrow>tr\<leadsto> P'"
+    and "length tr \<le> n"
+  shows "\<exists>mx. tr \<in> explore n mx mx P"
+proof -
+  from assms(1) obtain mx where bt: "btr (length tr) mx mx P tr" by (meson trace_to_btr)
+  with assms(2) have "btr n mx mx P tr" by (auto intro: btr_mono_n)
+  then show ?thesis by (auto simp add: explore_iff_btr)
+qed
+
+text \<open> Feasibility of a given trace and reachability of a set of events under a
+  monitor, both decided by the same explored set. \<close>
+
+definition feasible :: "nat \<Rightarrow> nat \<Rightarrow> ('e, 's) itree \<Rightarrow> 'e list \<Rightarrow> bool" where
+  "feasible n mx P tr \<longleftrightarrow> tr \<in> explore n mx mx P"
+
+lemma feasible_iff_btr: "feasible n mx P tr \<longleftrightarrow> btr n mx mx P tr"
+  by (simp add: feasible_def explore_iff_btr)
+
+lemma feasible_sound:
+  "feasible n mx P tr \<Longrightarrow> length tr \<le> n \<and> (\<exists>P'. P \<midarrow>tr\<leadsto> P')"
+  by (simp add: feasible_iff_btr btr_sound)
+
+definition reaches :: "nat \<Rightarrow> nat \<Rightarrow> ('e, 's) itree \<Rightarrow> 'e list \<Rightarrow> 'e list \<Rightarrow> bool" where
+  "reaches n mx P re me \<longleftrightarrow>
+     Set.filter (\<lambda>tr. (\<exists>e\<in>set re. e \<in> set tr) \<and> (me = [] \<or> (\<exists>m\<in>set me. m \<in> set tr)))
+       (explore n mx mx P) \<noteq> {}"
+
+text \<open> Reachability only ever reports traces that really exist in the model:
+  the monitor condition holds along the reported trace. \<close>
+
+lemma reaches_sound:
+  assumes "reaches n mx P re me"
+  shows "\<exists>tr. tr \<in> explore n mx mx P
+    \<and> (\<exists>e\<in>set re. e \<in> set tr) \<and> (me = [] \<or> (\<exists>m\<in>set me. m \<in> set tr))"
+  using assms by (auto simp add: reaches_def Set.filter_def)
+
+text \<open> Executable arithmetic code equations.  The pattern equations above are
+  removed from the code set because the code generator translates \<^typ>\<open>nat\<close> to
+  an opaque integer and cannot match on \<open>0\<close>/\<open>Suc\<close>. \<close>
+
+lemma explore_code_Ret [code]: "explore n mx t (Ret x) = {[]}"
+  by (cases n; simp)
+
+lemma explore_code_Sil [code]:
+  "explore n mx t (Sil Q) =
+     (if n = 0 then {[]} else if t = 0 then {[]} else explore n mx (t - 1) Q)"
+  by (cases n; cases t; simp)
+
+lemma explore_code_Vis [code]:
+  "explore n mx t (Vis F) =
+     (if n = 0 then {[]}
+      else {[]} \<union> \<Union> (((\<lambda>e. (#) e ` explore (n - 1) mx mx (F e)) ` pdom F)))"
+  by (cases n; simp)
+
+declare explore.simps(1) [code del]
+declare explore.simps(2) [code del]
+declare explore.simps(3) [code del]
+declare explore.simps(4) [code del]
+declare explore.simps(5) [code del]
+
+subsection \<open> Bounded checking of trace properties \<close>
+
+text \<open>
+  @{text explore} is an explorer: it enumerates every trace within the bounds.
+  A \emph{check} filters that enumeration by a property of traces, so its result
+  is the set of counterexamples and its verdict is the emptiness of that set.
+  Soundness and bounded completeness of a check are inherited directly from the
+  exploration, so a check can neither invent a counterexample nor miss one
+  within the bounds.
+\<close>
+
+definition checks :: "nat \<Rightarrow> nat \<Rightarrow> ('e, 's) itree \<Rightarrow> ('e list \<Rightarrow> bool) \<Rightarrow> 'e list set" where
+  "checks n mx P pred = Set.filter pred (explore n mx mx P)"
+
+definition has_counterexample :: "nat \<Rightarrow> nat \<Rightarrow> ('e, 's) itree \<Rightarrow> ('e list \<Rightarrow> bool) \<Rightarrow> bool" where
+  "has_counterexample n mx P pred \<longleftrightarrow> checks n mx P pred \<noteq> {}"
+
+lemma checks_iff: "tr \<in> checks n mx P pred \<longleftrightarrow> btr n mx mx P tr \<and> pred tr"
+  by (auto simp add: checks_def explore_iff_btr)
+
+text \<open> Every counterexample returned by a check is a genuine trace of the
+  model that really has the checked property. \<close>
+
+theorem checks_sound:
+  assumes "tr \<in> checks n mx P pred"
+  shows "pred tr \<and> length tr \<le> n \<and> (\<exists>P'. P \<midarrow>tr\<leadsto> P')"
+  using assms by (auto simp add: checks_def dest: explore_sound)
+
+text \<open> Conversely, every genuine trace of bounded length with the property is
+  returned by the check, for a large enough internal-step bound.  A check that
+  reports nothing therefore rules the property out within the bounds. \<close>
+
+theorem checks_complete:
+  assumes "P \<midarrow>tr\<leadsto> P'"
+    and "length tr \<le> n"
+    and "pred tr"
+  shows "\<exists>mx. tr \<in> checks n mx P pred"
+  using assms by (auto simp add: checks_def intro: explore_complete)
+
+text \<open> Checks of the security-relevant events of the framework.  The generic
+  correspondence checks look for a reachability event with (or without) a
+  monitor event before it, which is how secrecy and authenticity are phrased. \<close>
+
+definition is_leak :: "('a::{len,typerep}, 'n::{len,typerep}, 'k::{len,typerep}, 's::{len,typerep}, 'g::{len,typerep}, 'bm::{len,typerep}, 'bl::{len,typerep}) chan \<Rightarrow> bool" where
+  "is_leak e \<longleftrightarrow> (case e of leak_C _ \<Rightarrow> True | _ \<Rightarrow> False)"
+
+definition is_sig :: "('a::{len,typerep}, 'n::{len,typerep}, 'k::{len,typerep}, 's::{len,typerep}, 'g::{len,typerep}, 'bm::{len,typerep}, 'bl::{len,typerep}) chan \<Rightarrow> bool" where
+  "is_sig e \<longleftrightarrow> (case e of sig_C _ \<Rightarrow> True | _ \<Rightarrow> False)"
+
+definition is_start :: "('a::{len,typerep}, 'n::{len,typerep}, 'k::{len,typerep}, 's::{len,typerep}, 'g::{len,typerep}, 'bm::{len,typerep}, 'bl::{len,typerep}) chan \<Rightarrow> bool" where
+  "is_start e \<longleftrightarrow> (case e of sig_C (StartProt _ _ _ _) \<Rightarrow> True | _ \<Rightarrow> False)"
+
+definition is_end :: "('a::{len,typerep}, 'n::{len,typerep}, 'k::{len,typerep}, 's::{len,typerep}, 'g::{len,typerep}, 'bm::{len,typerep}, 'bl::{len,typerep}) chan \<Rightarrow> bool" where
+  "is_end e \<longleftrightarrow> (case e of sig_C (EndProt _ _ _ _) \<Rightarrow> True | _ \<Rightarrow> False)"
+
+definition is_terminate :: "('a::{len,typerep}, 'n::{len,typerep}, 'k::{len,typerep}, 's::{len,typerep}, 'g::{len,typerep}, 'bm::{len,typerep}, 'bl::{len,typerep}) chan \<Rightarrow> bool" where
+  "is_terminate e \<longleftrightarrow> (case e of terminate_C () \<Rightarrow> True | _ \<Rightarrow> False)"
+
+definition check_leak :: "nat \<Rightarrow> nat \<Rightarrow>
+    (('a::{len,typerep}, 'n::{len,typerep}, 'k::{len,typerep}, 's::{len,typerep}, 'g::{len,typerep}, 'bm::{len,typerep}, 'bl::{len,typerep}) chan, 'st) itree \<Rightarrow> ('a::{len,typerep}, 'n::{len,typerep}, 'k::{len,typerep}, 's::{len,typerep}, 'g::{len,typerep}, 'bm::{len,typerep}, 'bl::{len,typerep}) chan list set" where
+  "check_leak n mx P = checks n mx P (\<lambda>tr. \<exists>e\<in>set tr. is_leak e)"
+
+definition check_leak_msg :: "nat \<Rightarrow> nat \<Rightarrow>
+    (('a::{len,typerep}, 'n::{len,typerep}, 'k::{len,typerep}, 's::{len,typerep}, 'g::{len,typerep}, 'bm::{len,typerep}, 'bl::{len,typerep}) chan, 'st) itree \<Rightarrow> ('a::{len,typerep}, 'n::{len,typerep}, 'k::{len,typerep}, 's::{len,typerep}, 'g::{len,typerep}, 'bm::{len,typerep}, 'bl::{len,typerep}) dmsg \<Rightarrow> ('a::{len,typerep}, 'n::{len,typerep}, 'k::{len,typerep}, 's::{len,typerep}, 'g::{len,typerep}, 'bm::{len,typerep}, 'bl::{len,typerep}) chan list set" where
+  "check_leak_msg n mx P m =
+     checks n mx P (\<lambda>tr. \<exists>e\<in>set tr. (case e of leak_C m' \<Rightarrow> m' = m | _ \<Rightarrow> False))"
+
+definition check_sig :: "nat \<Rightarrow> nat \<Rightarrow>
+    (('a::{len,typerep}, 'n::{len,typerep}, 'k::{len,typerep}, 's::{len,typerep}, 'g::{len,typerep}, 'bm::{len,typerep}, 'bl::{len,typerep}) chan, 'st) itree \<Rightarrow> ('a::{len,typerep}, 'n::{len,typerep}, 'k::{len,typerep}, 's::{len,typerep}, 'g::{len,typerep}, 'bm::{len,typerep}, 'bl::{len,typerep}) chan list set" where
+  "check_sig n mx P = checks n mx P (\<lambda>tr. \<exists>e\<in>set tr. is_sig e)"
+
+definition check_terminate :: "nat \<Rightarrow> nat \<Rightarrow>
+    (('a::{len,typerep}, 'n::{len,typerep}, 'k::{len,typerep}, 's::{len,typerep}, 'g::{len,typerep}, 'bm::{len,typerep}, 'bl::{len,typerep}) chan, 'st) itree \<Rightarrow> ('a::{len,typerep}, 'n::{len,typerep}, 'k::{len,typerep}, 's::{len,typerep}, 'g::{len,typerep}, 'bm::{len,typerep}, 'bl::{len,typerep}) chan list set" where
+  "check_terminate n mx P = checks n mx P (\<lambda>tr. \<exists>e\<in>set tr. is_terminate e)"
+
+definition check_corr :: "nat \<Rightarrow> nat \<Rightarrow> ('e, 's) itree \<Rightarrow> ('e \<Rightarrow> bool) \<Rightarrow> ('e \<Rightarrow> bool) \<Rightarrow> 'e list set" where
+  "check_corr n mx P mon re =
+     checks n mx P (\<lambda>tr. tr \<noteq> [] \<and> re (last tr) \<and> (\<exists>e\<in>set (butlast tr). mon e))"
+
+definition check_corr_violation :: "nat \<Rightarrow> nat \<Rightarrow> ('e, 's) itree \<Rightarrow> ('e \<Rightarrow> bool) \<Rightarrow> ('e \<Rightarrow> bool) \<Rightarrow> 'e list set" where
+  "check_corr_violation n mx P mon re =
+     checks n mx P (\<lambda>tr. tr \<noteq> [] \<and> re (last tr) \<and> \<not> (\<exists>e\<in>set (butlast tr). mon e))"
+
+definition "check_authenticity n mx P = check_corr_violation n mx P is_start is_end"
+
+text \<open> @{text check_leak} finds every explored trace that leaks a message,
+  @{text check_sig} every trace with a claim/start/end signal, and
+  @{text check_authenticity} every trace that completes a run (@{text EndProt})
+  without an initiating signal (@{text StartProt}) before it.  All of them are
+  executable and return their counterexamples. \<close>
+
+lemma check_leak_sound:
+  assumes "tr \<in> check_leak n mx P"
+  shows "\<exists>e\<in>set tr. is_leak e"
+proof -
+  from assms have "tr \<in> checks n mx P (\<lambda>tr. \<exists>e\<in>set tr. is_leak e)"
+    by (simp add: check_leak_def)
+  from checks_sound[OF this] show ?thesis by simp
+qed
+
+lemma check_corr_violation_sound:
+  assumes "tr \<in> check_corr_violation n mx P mon re"
+  shows "tr \<noteq> [] \<and> re (last tr) \<and> \<not> (\<exists>e\<in>set (butlast tr). mon e)"
+proof -
+  from assms have "tr \<in> checks n mx P
+      (\<lambda>tr. tr \<noteq> [] \<and> re (last tr) \<and> \<not> (\<exists>e\<in>set (butlast tr). mon e))"
+    by (simp add: check_corr_violation_def)
+  from checks_sound[OF this] show ?thesis by simp
+qed
+
+
+subsection \<open> Classifying the state a trace reaches \<close>
+
+text \<open>
+  @{text state_kind} follows a trace of the model, spending at most \<open>mx\<close>
+  internal steps between visible events, and reports how the run ends: a
+  finished run, a deadlock, a divergence (the internal budget is exhausted), or
+  a state that can still perform events.  The web interface uses it to label the
+  leaves of the event tree it stores, so a leaf says whether the run terminated,
+  deadlocked or diverged, as the hand-written explorer did.
+\<close>
+
+datatype skind = SContinues | STerminated | SDeadlocked | SDivergent
+
+text \<open> The run is followed with an explicit fuel, so that the definition is
+  structurally recursive and needs no termination proof: one visible event may
+  be preceded by at most \<open>mx\<close> internal steps, hence
+  \<open>(length tr + 1) * (mx + 1)\<close> steps always suffice. \<close>
+
+fun follow_fuel :: "nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> ('e, 's) itree \<Rightarrow> 'e list \<Rightarrow> ('e, 's) itree" where
+  "follow_fuel 0 mx t P tr = P"
+| "follow_fuel (Suc f) mx (Suc t) (Sil P) tr = follow_fuel f mx t P tr"
+| "follow_fuel (Suc f) mx 0 (Sil P) tr = Sil P"
+| "follow_fuel (Suc f) mx t (Ret x) tr = Ret x"
+| "follow_fuel (Suc f) mx t (Vis F) [] = Vis F"
+| "follow_fuel (Suc f) mx t (Vis F) (e # tr) =
+     (if e \<in> pdom F then follow_fuel f mx mx (F e) tr else Vis F)"
+
+fun stop_kind :: "nat \<Rightarrow> ('e, 's) itree \<Rightarrow> skind" where
+  "stop_kind t (Ret x) = STerminated"
+| "stop_kind 0 (Sil P) = SDivergent"
+| "stop_kind (Suc t) (Sil P) = stop_kind t P"
+| "stop_kind t (Vis F) = (if pdom F = {} then SDeadlocked else SContinues)"
+
+text \<open> The code generator represents \<open>nat\<close> as an opaque type, so the
+  pattern equations above cannot be used directly; the following arithmetic
+  equations are what is extracted. \<close>
+
+lemma follow_fuel_code [code]:
+  "follow_fuel f mx t P tr =
+     (if f = 0 then P
+      else case P of
+             Sil Q \<Rightarrow> (if t = 0 then Sil Q else follow_fuel (f - 1) mx (t - 1) Q tr)
+           | Ret x \<Rightarrow> Ret x
+           | Vis F \<Rightarrow> (case tr of
+                           [] \<Rightarrow> Vis F
+                         | e # tr' \<Rightarrow> (if e \<in> pdom F
+                                          then follow_fuel (f - 1) mx mx (F e) tr'
+                                          else Vis F)))"
+  by (cases f; cases P; cases t) (auto split: itree.splits list.splits)
+
+lemma stop_kind_code [code]:
+  "stop_kind t P =
+     (case P of
+        Ret x \<Rightarrow> STerminated
+      | Sil Q \<Rightarrow> (if t = 0 then SDivergent else stop_kind (t - 1) Q)
+      | Vis F \<Rightarrow> (if pdom F = {} then SDeadlocked else SContinues))"
+  by (cases P; cases t) auto
+
+declare follow_fuel.simps [code del]
+declare stop_kind.simps [code del]
+
+definition state_kind :: "nat \<Rightarrow> ('e, 's) itree \<Rightarrow> 'e list \<Rightarrow> skind" where
+  "state_kind mx P tr = stop_kind mx (follow_fuel ((length tr + 1) * (mx + 1)) mx mx P tr)"
+
+text \<open> The classification is the one of the hand-written explorer: a state
+  whose domain is empty is a deadlock, an exhausted internal budget is a
+  divergence, a finished run is termination, and anything else can continue. \<close>
+
+lemma state_kind_Terminated:
+  "state_kind mx (Ret x) tr = STerminated"
+  by (cases "(length tr + 1) * (mx + 1)" rule: nat.exhaust) (simp_all add: state_kind_def)
+
+lemma state_kind_Deadlocked:
+  "pdom F = {} \<Longrightarrow> state_kind mx (Vis F) [] = SDeadlocked"
+  by (cases "(length ([] :: 'e list) + 1) * (mx + 1)" rule: nat.exhaust)
+     (simp_all add: state_kind_def)
+
+lemma state_kind_Divergent:
+  "state_kind 0 (Sil P) [] = SDivergent"
+  by (simp add: state_kind_def)
+
+subsection \<open> Sound exploration driver \<close>
+
+text \<open> A generic driver for the Isabelle-extracted search.  It is compiled
+  together with the exported model and the exported @{text explore} / @{text
+  feasible} / @{text reaches} / @{text checks} functions.
+
+  The driver needs \<open>Eq\<close> and \<open>Show\<close> instances for the event type of the model.
+  The code generator emits them only when the exported definitions actually
+  depend on them: in particular the \<open>Eq\<close> instance for a channel type is
+  generated only if the model compares channels somewhere.  Should a model not
+  do so, add a semantically neutral comparison to its definition (this is a
+  known conservativity of the generator, not a soundness restriction). \<close>
+
+generate_file \<open>code/simulate/Sound.hs\<close> = \<open>
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleContexts #-}
+module Sound (runSound) where
+import Interaction_Trees (Itree)
+import Prelude
+import qualified Prelude
+import Arith (nat_of_integer)
+import qualified Set
+import Sec_Animation (explore, check_leak, check_sig, check_terminate, check_authenticity)
+import System.Environment (getArgs)
+import System.IO (hSetBuffering, stdin, stdout, BufferMode(NoBuffering, LineBuffering))
+import System.IO.Error (tryIOError)
+
+-- | Elements of a finite set, in the order in which the extracted search built it.
+setToList :: forall a. Set.Set a -> [a]
+setToList (Set.Set xs) = xs
+setToList (Set.Coset _) = []
+
+-- | The bounds used when the user just presses Return.
+defaultBounds :: (Prelude.Integer, Prelude.Integer)
+defaultBounds = (3, 3)
+
+parseNat :: Prelude.String -> Prelude.Maybe Prelude.Integer
+parseNat s = case Prelude.reads s of
+  [(n, r)] | Prelude.all (== ' ') r -> Prelude.Just n
+  _ -> Prelude.Nothing
+
+-- | Ask for one bound, using the default on an empty answer or on end of input.
+promptNat :: Prelude.String -> Prelude.Integer -> Prelude.IO Prelude.Integer
+promptNat label def = do
+  Prelude.putStr (label ++ " [" ++ Prelude.show def ++ "]: ")
+  r <- tryIOError Prelude.getLine
+  case r of
+    Prelude.Left _ -> do
+      Prelude.putStrLn ""
+      return def
+    Prelude.Right l -> case parseNat l of
+      Prelude.Just v -> return v
+      Prelude.Nothing -> return def
+
+-- | Ask for the visible-event bound n and the internal-step bound mx.
+askBounds :: Prelude.IO (Prelude.Integer, Prelude.Integer)
+askBounds = do
+  n <- promptNat "Visible-event bound n (bound on the number of visible events)" (Prelude.fst defaultBounds)
+  mx <- promptNat "Internal-step bound mx (bound on internal steps between visible events)" (Prelude.snd defaultBounds)
+  return (n, mx)
+
+-- | Print all explored traces.
+showTraces :: (Prelude.Show e) => [e] -> Prelude.IO ()
+showTraces ts = do
+  Prelude.putStrLn ("*** " ++ Prelude.show (Prelude.length ts) ++ " traces within the bounds ***")
+  Prelude.mapM_ (\tr -> Prelude.putStrLn ("  " ++ Prelude.show tr)) ts
+
+-- | Report the counterexamples returned by a check; empty means none were found.
+report :: (Prelude.Show e) => Prelude.String -> [e] -> Prelude.IO ()
+report label ts = case ts of
+  [] -> Prelude.putStrLn ("No " ++ label ++ " counterexample within the bounds.")
+  _ -> do
+    Prelude.putStrLn ("*** " ++ Prelude.show (Prelude.length ts) ++ " " ++ label ++ " counterexample(s) found ***")
+    Prelude.mapM_ (\tr -> Prelude.putStrLn ("  " ++ Prelude.show tr)) ts
+
+-- | Run the sound bounded exploration and checking of an ITree.
+-- The bounds are the first two command-line arguments if given, otherwise the
+-- user is prompted for n and mx; the check is then chosen interactively.
+runSound p = do
+  hSetBuffering stdout NoBuffering
+  hSetBuffering stdin LineBuffering
+  Prelude.putStrLn "Sound bounded exploration / checking (search extracted from Isabelle/HOL)"
+  args <- getArgs
+  (n, mx) <- case args of
+    (a : b : _) -> case (parseNat a, parseNat b) of
+      (Prelude.Just n', Prelude.Just m') -> return (n', m')
+      _ -> askBounds
+    _ -> askBounds
+  let nn = nat_of_integer n
+      mm = nat_of_integer mx
+  Prelude.putStrLn "Which check?"
+  Prelude.putStrLn "  1) enumerate all traces within the bounds"
+  Prelude.putStrLn "  2) secrecy: traces containing a Leak event"
+  Prelude.putStrLn "  3) authenticity stages: traces containing a Sig event"
+  Prelude.putStrLn "  4) completion: traces containing a Terminate event"
+  Prelude.putStrLn "  5) authenticity: completed runs (EndProt) with no StartProt before them"
+  Prelude.putStr "Check [1]: "
+  c <- tryIOError Prelude.getLine
+  case c of
+    Prelude.Left _ -> showTraces (setToList (explore nn mm mm p))
+    Prelude.Right l -> case l of
+      "2" -> report "Leak" (setToList (check_leak nn mm p))
+      "3" -> report "Sig" (setToList (check_sig nn mm p))
+      "4" -> report "Terminate" (setToList (check_terminate nn mm p))
+      "5" -> report "authenticity" (setToList (check_authenticity nn mm p))
+      _ -> showTraces (setToList (explore nn mm mm p))
+\<close>
+
 ML \<open> 
 structure ITree_Simulator =
 struct
@@ -568,9 +1052,30 @@ fun simulator_setup thy =
     make_directory tmp; (tmp, ISim_Path.put (SOME tmp) thy)
   end
 
-fun sim_files_cp tmp = 
+(* GHC resolution.  The distribution default for @{verbatim ISABELLE_GHC} may
+   point at a compiler that is not installed, so check it first and otherwise
+   fall back to ghcup and then to @{verbatim ghc} on the PATH. *)
+fun ghc_exe () =
+  let
+    val isa = getenv "ISABELLE_GHC"
+    val home = getenv "HOME"
+    val ghcup = home ^ "/.ghcup/bin/ghc"
+  in
+    if isa <> "" andalso File.exists (Path.explode isa) then isa
+    else if home <> "" andalso File.exists (Path.explode ghcup) then ghcup
+    else if #2 (Isabelle_System.bash_output "command -v ghc") = 0 then "ghc"
+    else error ("GHC not found. Set ISABELLE_GHC in " ^ getenv "ISABELLE_HOME_USER" ^
+      "/etc/settings, or put ghc on the PATH.")
+  end
+
+fun sim_files_cp_bin bin tmp = 
+  let val ghc = ghc_exe ()
+  in
   "(fn path => let open Isabelle_System; val path' = Path.append path (Path.make [\"code\", \"simulate\"])" ^
-  " in writeln \"Compiling animation...\"; bash (\"cd \" ^ Path.implode path' ^ \"; ghc Simulation >> /dev/null\") ; copy_dir path' (Path.explode \"" ^ tmp ^ "\") end)"
+  " in writeln \"Compiling animation...\"; bash (\"cd \" ^ Path.implode path' ^ \"; " ^ ghc ^ " " ^ bin ^ " >> /dev/null\") ; copy_dir path' (Path.explode \"" ^ tmp ^ "\") end)"
+  end
+
+fun sim_files_cp tmp = sim_files_cp_bin "Simulation" tmp
 
 open Named_Target
 
@@ -587,8 +1092,7 @@ fun prep_simulation model thy ctx =
   let open Generated_Files; 
       val (tmp, thy') = simulator_setup (Local_Theory.exit_global ctx);
       val ctx' = Named_Target.theory_init thy'
-      val ghc = getenv "ISABELLE_GHC"
-      val _ = if (ghc = "") then error "GHC is not set up. Please set the environment variable ISABELLE_GHC." else ()
+      val _ = ghc_exe ()
   in
   generate_file (Path.binding0 (Path.make ["code", "simulate", "Simulation.hs"]), (Input.string (simulation_file model thy))) ctx' |>
   (fn ctx' => 
@@ -617,12 +1121,61 @@ fun simulate model thy =
   in run_simulation (Local_Theory.exit_global ctx'); (Local_Theory.exit_global ctx')
   end 
 
+fun sound_main_file model thy =
+  "module Main where \n" ^
+  "import Sound; \n" ^
+  "import " ^ thy ^ "; \n" ^
+  "main = runSound " ^ firstLower model
+
+fun prep_sound model thy ctx =
+  let open Generated_Files;
+      val (tmp, thy') = simulator_setup (Local_Theory.exit_global ctx);
+      val ctx' = Named_Target.theory_init thy'
+      val _ = ghc_exe ()
+  in
+  generate_file (Path.binding0 (Path.make ["code", "simulate", "SoundMain.hs"]), (Input.string (sound_main_file model thy))) ctx' |>
+  (fn ctx' =>
+    let val _ = compile_generated_files
+                 ctx'
+                 [([], (Local_Theory.exit_global ctx')), ([Path.binding0 (Path.make ["code", "simulate", "Sound.hs"])], @{theory})]
+                 [] [([Path.binding0 (Path.make ["code", "simulate", "SoundMain"])], SOME true)]
+                 (Path.binding0 (Path.make []))
+                 (Input.string (sim_files_cp_bin "SoundMain" (Path.implode tmp)))
+    in ctx' end)
+
+  end
+
+fun run_sound thy =
+  case ISim_Path.get thy of
+    NONE => error "No sound exploration" |
+    SOME f => writeln (Active.run_system_shell_command (SOME (Path.implode f)) ("./simulate/SoundMain") "Start sound exploration")
+
+(* Export the model together with the Isabelle-defined search, so that the
+   exploration performed at run time is the one proved sound and complete. *)
+fun sound_simulate model thy =
+  let val ctx = Named_Target.theory_init thy
+      val thy0 = Local_Theory.exit_global ctx
+      val cs = map (Code.read_const thy0)
+        [model, "explore", "feasible", "reaches", "checks", "check_leak", "check_leak_msg",
+         "check_sig", "check_terminate", "check_corr", "check_corr_violation",
+         "check_authenticity"]
+      val ctx' =
+        (Code_Target.export_code true cs [((("Haskell", ""), SOME ({physical = false}, (Path.explode "simulate", Position.none))), (Token.explode (Thy_Header.get_keywords' @{context}) Position.none "string_classes"))] ctx)
+        |> prep_sound model (Context.theory_name {long = false} thy)
+  in run_sound (Local_Theory.exit_global ctx'); (Local_Theory.exit_global ctx')
+  end 
+
 end;
 \<close>
 
 ML \<open>
   Outer_Syntax.command @{command_keyword animate_sec} "animate an ITree"
   (Parse.name >> (fn model => Toplevel.theory (ITree_Simulator.simulate model)))
+\<close>
+
+ML \<open>
+  Outer_Syntax.command @{command_keyword animate_sec_sound} "soundly explore an ITree"
+  (Parse.name >> (fn model => Toplevel.theory (ITree_Simulator.sound_simulate model)))
 \<close>
 
 end

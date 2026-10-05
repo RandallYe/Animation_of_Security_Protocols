@@ -78,7 +78,7 @@ definition Responder :: "dagent \<Rightarrow> dnonce \<Rightarrow> dagent \<Righ
     (_, _, _, m') \<leftarrow> inp_in recv (set [(Intruder, Intruder, B, {s}\<^sup>s\<^bsub>(ExpG ^\<^sub>m (MNon nb)) ^\<^sub>m (MNon na)\<^esub> ). 
        s \<leftarrow> AllPKsLst', na \<leftarrow> removeAll nb AllNonces']);
     \<comment> \<open> If B can break the message m' to get the secret, it terminates. Otherwise, deadlock \<close>
-    if List.member (breakm [MNon nb, MAg B, ExpG ^\<^sub>m (MNon nb), m, m']) (MK (pks A)) then 
+    if List.member (breakl [MNon nb, MAg B, ExpG ^\<^sub>m (MNon nb), m, m']) (MK (pks A)) then 
       outp terminate ()
     else Ret ()
 }
@@ -125,7 +125,7 @@ definition PIntruder0:: "dagent \<Rightarrow> dnonce \<Rightarrow> dmsg list \<R
        do { 
             \<comment> \<open> Intruder can hear anything Alice and Bob can send \<close>
             (A, I, B, m) \<leftarrow> inp_in hear (set (A_I_snd_msg Alice (NonceMap Alice) @ B_I_snd_msg Bob (NonceMap Bob)));
-            Ret (True, breakm (List.insert m knows), sec)}
+            Ret (True, breakl (List.insert m knows), sec)}
     \<box> \<^cancel>\<open>do { inp_in fake (set [(A, I, B, m'). A \<leftarrow> [I], B \<leftarrow> removeAll I AllAgents', 
               m' \<leftarrow> (build1\<^sub>n_0 (knows))]); 
             Ret (True, knows, sec) }\<close>
@@ -188,7 +188,7 @@ definition DH_Original where
 "DH_Original = 
     (PAlice  \<parallel>\<^bsub> set terminate_event \<^esub> PBob) \<parallel>\<^bsub> Events_A_B_I \<^esub> PIntruder"
 
-animate_sec DH_Original
+animate_sec_sound DH_Original
 
 (* AReach 15 %Terminate%
    AReach 15 %Leak PK0%

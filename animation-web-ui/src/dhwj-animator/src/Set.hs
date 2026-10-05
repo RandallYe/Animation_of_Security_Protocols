@@ -1,8 +1,8 @@
 {-# LANGUAGE EmptyDataDecls, RankNTypes, ScopedTypeVariables #-}
 
 module
-  Set(Set(..), image, insert, member, remove, is_empty, the_elem, bot_set,
-       inf_set, sup_set, less_eq_set, equal_set, uminus_set)
+  Set(Set(..), image, filtera, insert, member, remove, is_empty, the_elem,
+       bot_set, inf_set, sup_set, less_eq_set, equal_set, uminus_set)
   where {
 
 import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
@@ -10,7 +10,9 @@ import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
   error, id, return, not, fst, snd, map, filter, concat, concatMap, reverse,
   zip, null, takeWhile, dropWhile, all, any, Integer, negate, abs, divMod,
   String, Bool(True, False), Maybe(Nothing, Just));
+import Data.Bits ((.&.), (.|.));
 import qualified Prelude;
+import qualified Data.Bits;
 import qualified Rational;
 import qualified List;
 
@@ -18,6 +20,9 @@ data Set a = Set [a] | Coset [a] deriving (Prelude.Read, Prelude.Show);
 
 image :: forall a b. (a -> b) -> Set a -> Set b;
 image f (Set xs) = Set (map f xs);
+
+filtera :: forall a. (a -> Bool) -> Set a -> Set a;
+filtera p (Set xs) = Set (filter p xs);
 
 insert :: forall a. (Eq a) => a -> Set a -> Set a;
 insert x (Coset xs) = Coset (List.removeAll x xs);

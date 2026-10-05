@@ -216,7 +216,7 @@ definition "PAlice =
     (jamming Alice (get_messages (A_rcv_msgs Alice)) True)
   ) \<lbrakk> (set [terminate_C ()]) \<Zrres> skip"
 
-(* animate_sec PAlice *)
+(* animate_sec_sound PAlice *)
 
 definition "terminate_rename = [(terminate_C (), terminate_C ())]"
 definition "terminate_event = [terminate_C ()]"
@@ -241,7 +241,7 @@ definition Responder :: "dagent \<Rightarrow> dnonce \<Rightarrow> dagent \<Righ
           do {
             \<comment> \<open> If B can break the message m' to get the secret, so the session key works. 
                 The protocol terminates. Otherwise, deadlock (due to the later exception). \<close>
-            \<^cancel>\<open>if List.member (breakm [MNon nb, MAg B, ExpG ^\<^sub>m (MNon nb), gx, m3]) 
+            \<^cancel>\<open>if List.member (breakl [MNon nb, MAg B, ExpG ^\<^sub>m (MNon nb), gx, m3]) 
                  (MPK A) then\<close>
             \<comment> \<open>If the swap of the key (g^y^x) is equal to (g^x^y), then we can decrypt it to get its 
               clear message m3m \<close>
@@ -296,7 +296,7 @@ definition "PBob =
       (PBob_jamming Bob (NonceMap Bob))) 
   \<lbrakk> (set [terminate_C ()]) \<Zrres> skip"
 
-(* animate_sec PBob *)
+(* animate_sec_sound PBob *)
 
 subsubsection \<open> Intruder \<close>
 text \<open> All the messages the agents can send and receive \<close>
@@ -321,7 +321,7 @@ definition PIntruder0:: "dagent \<Rightarrow> dnonce \<Rightarrow> dmsg list \<R
             \<comment> \<open> Intruder can hear anything Alice and Bob can send \<close>
             (m) \<leftarrow> inp_in cjam (set (all_jm_wm_msg123_agent_send eve));
             \<comment> \<open> Intruder can fake any message (it can infer) to the target \<close>
-            Ret (True, breakm (List.insert m knows), sec)
+            Ret (True, breakl (List.insert m knows), sec)
       }
     \<comment> \<open> If we consider an active attack so it can send inferred messages to Alice and Bob from Intruder.
     Though the intruder can send any inferred message, here we only consider watermarked messages 
@@ -369,7 +369,7 @@ definition "PIntruder eve = (PIntruder1 Intruder (NonceMap(Intruder)) InitKnows 
 
 definition "PIntruderEve1 = PIntruder Eve3"
 
-(* animate_sec PIntruderEve1 *)
+(* animate_sec_sound PIntruderEve1 *)
 
 subsubsection \<open> Composition \<close>
 text \<open> All messages that agents can fake. \<close>
@@ -410,7 +410,7 @@ definition "DHWJ_active_eve1 = DHWJ_active' Eve1"
 definition "DHWJ_active_eve2 = DHWJ_active' Eve2"
 definition "DHWJ_active_eve3 = DHWJ_active' Eve3"
 definition "DHWJ_active_eve4 = DHWJ_active' Eve4"
-animate_sec DHWJ_active_eve4
+animate_sec_sound DHWJ_active_eve4
 
 (* AReach 15 %Terminate%
    AReach 15 %Leak PK0%

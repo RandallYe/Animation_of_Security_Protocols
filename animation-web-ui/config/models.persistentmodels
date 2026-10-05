@@ -116,3 +116,10 @@ DHWJTreesEve4  -- Protocol event trees
     UniqueTrees_DHWJEve4 eid
     deriving Eq
     deriving Show
+
+TreeBuilt  -- records that a protocol event tree has been built completely
+    protocol Text -- the protocol, e.g. "NSPK3"
+    eve Text -- the eavesdropper scenario, e.g. "NSWJ3Eve1"
+    UniqueTreeBuilt protocol eve
+    deriving Eq
+    deriving Show

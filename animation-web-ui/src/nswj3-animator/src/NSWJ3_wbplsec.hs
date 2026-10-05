@@ -11,7 +11,8 @@ module
                  pIntruder1, pIntruder, a_snd_msgs, all_msgs_I, b_snd_msgs,
                  a_snd_events, b_snd_events, terminate_event, evt_msgs_recv,
                  b_recv_events, a_recv_events, evt_msgs_snd, events_A_B_I,
-                 nSWJ3_active, nSWJ3_active_eve1)
+                 nSWJ3_active, nSWJ3_active_eve1, nSWJ3_active_eve2,
+                 nSWJ3_active_eve3, nSWJ3_active_eve4)
   where {
 
 import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
@@ -19,7 +20,9 @@ import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
   error, id, return, not, fst, snd, map, filter, concat, concatMap, reverse,
   zip, null, takeWhile, dropWhile, all, any, Integer, negate, abs, divMod,
   String, Bool(True, False), Maybe(Nothing, Just));
+import Data.Bits ((.&.), (.|.));
 import qualified Prelude;
+import qualified Data.Bits;
 import qualified Rational;
 import qualified Typerep;
 import qualified HOL;
@@ -1149,7 +1152,7 @@ pIntruder0 i ni k s eve =
                   (\ _ -> True))
                 (\ m ->
                   Interaction_Trees.Ret
-                    (True, (Sec_Messages.breakm (List.insert m knows), sec))))
+                    (True, (Sec_Messages.breakl (List.insert m knows), sec))))
               (ITree_CSP.extchoice_itree
                 (Interaction_Trees.bind_itree
                   (ITree_CSP.inp_list_where Sec_Messages.recv
@@ -1838,5 +1841,44 @@ nSWJ3_active_eve1 ::
 nSWJ3_active_eve1 =
   (if NSWJ3_config.equal_deve NSWJ3_config.Eve1 NSWJ3_config.Eve2
     then nSWJ3_active NSWJ3_config.Eve1 else nSWJ3_active NSWJ3_config.Eve1);
+
+nSWJ3_active_eve2 ::
+  Interaction_Trees.Itree
+    (Sec_Messages.Chan (Numeral_Type.Bit0 Numeral_Type.Num1)
+      (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
+      (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
+      (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
+      Numeral_Type.Num1 (Numeral_Type.Bit1 Numeral_Type.Num1)
+      (Numeral_Type.Bit0 Numeral_Type.Num1))
+    ();
+nSWJ3_active_eve2 =
+  (if NSWJ3_config.equal_deve NSWJ3_config.Eve1 NSWJ3_config.Eve2
+    then nSWJ3_active NSWJ3_config.Eve2 else nSWJ3_active NSWJ3_config.Eve2);
+
+nSWJ3_active_eve3 ::
+  Interaction_Trees.Itree
+    (Sec_Messages.Chan (Numeral_Type.Bit0 Numeral_Type.Num1)
+      (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
+      (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
+      (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
+      Numeral_Type.Num1 (Numeral_Type.Bit1 Numeral_Type.Num1)
+      (Numeral_Type.Bit0 Numeral_Type.Num1))
+    ();
+nSWJ3_active_eve3 =
+  (if NSWJ3_config.equal_deve NSWJ3_config.Eve1 NSWJ3_config.Eve2
+    then nSWJ3_active NSWJ3_config.Eve3 else nSWJ3_active NSWJ3_config.Eve3);
+
+nSWJ3_active_eve4 ::
+  Interaction_Trees.Itree
+    (Sec_Messages.Chan (Numeral_Type.Bit0 Numeral_Type.Num1)
+      (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
+      (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
+      (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
+      Numeral_Type.Num1 (Numeral_Type.Bit1 Numeral_Type.Num1)
+      (Numeral_Type.Bit0 Numeral_Type.Num1))
+    ();
+nSWJ3_active_eve4 =
+  (if NSWJ3_config.equal_deve NSWJ3_config.Eve1 NSWJ3_config.Eve2
+    then nSWJ3_active NSWJ3_config.Eve4 else nSWJ3_active NSWJ3_config.Eve4);
 
 }

@@ -2,8 +2,8 @@
 
 module
   Arith(Int(..), Nat(..), Num(..), integer_of_nat, plus_nat, one_nat, suc,
-         zero_nat, divmod_integer, nat_of_integer, equal_nat, times_nat,
-         modulo_integer, modulo_nat)
+         zero_nat, divmod_integer, nat_of_integer, equal_nat, minus_nat,
+         less_eq_nat, times_nat, modulo_integer, modulo_nat)
   where {
 
 import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
@@ -11,7 +11,9 @@ import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
   error, id, return, not, fst, snd, map, filter, concat, concatMap, reverse,
   zip, null, takeWhile, dropWhile, all, any, Integer, negate, abs, divMod,
   String, Bool(True, False), Maybe(Nothing, Just));
+import Data.Bits ((.&.), (.|.));
 import qualified Prelude;
+import qualified Data.Bits;
 import qualified Rational;
 import qualified Product_Type;
 import qualified Orderings;
@@ -69,6 +71,13 @@ nat_of_integer k = Nat (Orderings.max (0 :: Integer) k);
 
 equal_nat :: Nat -> Nat -> Bool;
 equal_nat m n = integer_of_nat m == integer_of_nat n;
+
+minus_nat :: Nat -> Nat -> Nat;
+minus_nat m n =
+  Nat (Orderings.max (0 :: Integer) (integer_of_nat m - integer_of_nat n));
+
+less_eq_nat :: Nat -> Nat -> Bool;
+less_eq_nat m n = integer_of_nat m <= integer_of_nat n;
 
 times_nat :: Nat -> Nat -> Nat;
 times_nat m n = Nat (integer_of_nat m * integer_of_nat n);

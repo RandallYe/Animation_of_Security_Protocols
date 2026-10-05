@@ -35,14 +35,15 @@ import Import (redirect, get404, setSession)
 import Text.Read (readMaybe, read)
 import Data.Graph (reachable)
 
+-- | Build the protocol event tree unless it has already been built.  The tree
+--   comes from the Isabelle-proved exploration, so the work is serialised on the
+--   protocol's lock and the completion marker is re-checked inside it.
+ensureEventTree :: Handler ()
+ensureEventTree = ensureTreeBuilt "nslpk3" "NSLPK3" initInsertEventTreeToDB
+
 getAnimateNSLPK3R :: Handler Html
 getAnimateNSLPK3R = do
-    -- Check if the event tree is already in the DB by looking for the ROOT event
-    rootEventDB <- runDB $ getRootEventDB 
-    -- liftIO $ print $ "rootEventDB" <> T.pack (show rootEventDB)
-    case rootEventDB of
-      [] -> liftHandler $ initInsertEventTreeToDB 
-      _ -> return () -- So the tree is already in the DB
+    ensureEventTree
 
     maybeProtocol <- lookupSession $ sessionProtocolNameKey
     case maybeProtocol of
@@ -138,6 +139,7 @@ postAnimateNSLPK3AutoR = do
 autoFormHandler :: AutoInputForm -> Handler String
 autoFormHandler autoFormRes = do 
       clearSessionForCounterexamples
+      (depth, internal_depth) <- getEventTreeDepthFor "nslpk3"
       res <- autoCheck reach ch1 msg1 ch2 msg2
       -- setMessage $ toHtml $ "Automatic reachability check counterexamples: " ++ show (length res) ++ "."
       liftIO $ print ("Automatic reachability check counterexamples: " ++ show (length res) ++ ".")
@@ -151,7 +153,8 @@ autoFormHandler autoFormRes = do
         , show ch1 
         , "/ "
         , show msg1
-        , "]." ]
+        , "]. "
+        , T.unpack (boundedVerdict depth internal_depth (length res)) ]
     where 
       reach = autoReach autoFormRes 
       ch1 = autoMonitorChannel autoFormRes 
@@ -180,34 +183,29 @@ postAnimateNSLPK3ResetR = do
   clearSession
   redirect $ AnimateNSLPK3R :#: ("animation_forms" :: Text)
 
--- | Initialise the database with explored tree and insert all events into the DB
+-- | Initialise the database with explored tree and insert all events into the DB.
+--   The exploration is computed first; the rows are then inserted in small
+--   transactions and the completion marker is written last.  The SQLite write
+--   lock is therefore never held for long, and an interrupted build is detected
+--   (there is no marker) and redone.
 initInsertEventTreeToDB :: Handler ()
 initInsertEventTreeToDB = do
-    -- liftIO $ print "initInsertEventTreeToDB"
-    (depth, internal_depth) <- getEventTreeDepth
-    case explore_tree_NSLPK3 depth internal_depth of
-      ETNode (TEP 0 0 Root) trees -> do 
-        -- insert the ROOT event with its parent id set to -1
-        runDB $ do insert_ $ NSLPK3Trees "NSLPK3" 0 0 0 (-1) (NSLPK3_TEvent Root)
-        case trees of
-          [] -> return ()
-          (xs) -> do 
-            -- liftIO $ print "initInsertEventTreeToDB" 
-            eid <- traverseTree (map NSLPK3_EventTree xs) 0 0
-            return ()
-      _ -> return ()
+    (depth, internal_depth) <- getEventTreeDepthFor "nslpk3"
+    let tree = explore_tree_NSLPK3 depth internal_depth
+        rows = treeRows 0 (-1) tree
+    runDB $ deleteWhere [NSLPK3TreesProtocol ==. "NSLPK3"]
+    mapM_ (runDB . insertMany_ . map mkRow) (chunksOfN treeInsertChunk rows)
+    runDB $ markTreeBuilt "nslpk3" "NSLPK3"
+  where
+    mkRow (eid, d, n, parent, e) = NSLPK3Trees "NSLPK3" eid d n parent (NSLPK3_TEvent e)
 
--- | Traverse a list of event trees based on current event id and parent
-traverseTree :: [NSLPK3_EventTree] -> Int -> Int -> Handler Int 
-traverseTree [] eid parent = return eid
-traverseTree (x:xs) eid parent = case x of 
-  NSLPK3_EventTree (ETNode et@(TEP d n e) trees) -> do
-        -- logInfo $ "Insert: " <> T.pack (show e)
-        runDB $ do insert_ $ NSLPK3Trees "NSLPK3" (eid+1) d n parent (NSLPK3_TEvent e)
-        eid1 <- traverseTree (map NSLPK3_EventTree trees) (eid+1) (eid+1)
-        eid2 <- traverseTree xs eid1 parent
-        return eid2 
---  _ -> return ()
+-- | The rows of a tree in the pre-order numbering used by the database: the
+--   root has event id 0 and parent -1, and each subtree is numbered before the
+--   next sibling.
+treeRows eid parent (ETNode (TEP d n e) cs) = (eid, d, n, parent, e) : go (eid + 1) cs
+  where
+    go _ [] = []
+    go next (c:cs) = let rs = treeRows next eid c in rs ++ go (next + length rs) cs
 
 -- | Get the ROOT event from the database
 getRootEventDB :: DB [Entity NSLPK3Trees]

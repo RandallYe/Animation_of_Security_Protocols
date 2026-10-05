@@ -5,6 +5,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PackageImports #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- | Common handler functions.
 module Handler.Common where
@@ -16,7 +17,8 @@ import Network.HTTP.Simple
 import Data.Text           as T
 import Data.Text.Encoding  as T
 import Data.Text.IO        as T
-import qualified Data.List as DL (dropWhile, dropWhileEnd, intersect, head, tail, elemIndex, uncons);
+import qualified Data.List as DL (dropWhile, dropWhileEnd, intersect, head, tail, elemIndex, uncons, splitAt);
+import qualified Data.Map as M
 import Data.ByteString.UTF8 as B
 import Data.ByteString.Lazy.UTF8 as LB
 import Text.Blaze.Internal as TBI
@@ -344,6 +346,18 @@ autoAnimationForm :: [(Text, Text)] -> Html -> Handler (FormResult AutoInputForm
 autoAnimationForm channelList = renderTable (autoAnimationAForm channelList)
 -}
 
+-- | The exploration bounds (depth, internal depth) for a protocol.  The values
+--   differ a lot between protocols -- NSPK3 saturates at depth 15 (~95 s), while
+--   NSWJ3 does not even finish at depth 20 -- so a protocol may override the
+--   defaults in @config/settings.yml@ under @event-tree-bounds@.
+getEventTreeDepthFor :: Text -> Handler (Int, Int)
+getEventTreeDepthFor protocol = do
+    app <- getYesod
+    let settings = appSettings app
+        defaults = (appEventTreeDepth settings, appEventTreeInternalDepth settings)
+    return $ fromMaybe defaults (lookup protocol (appEventTreeBounds settings))
+
+-- | The default exploration bounds, used by protocols without an override.
 getEventTreeDepth :: Handler (Int, Int)
 getEventTreeDepth = do 
     -- Get the foundation (App)
@@ -384,6 +398,68 @@ sessionNumberOfCounterexamplesKey = "number_of_counterexamples"
 -- | The session key for PlantUML input for a chosen counterexample to view
 sessionCntExPlantumlInputKey :: Text
 sessionCntExPlantumlInputKey = "plantuml_input_cntex"
+
+-- | How many tree rows are inserted per transaction.  Small enough that the
+--   SQLite write lock is released between chunks, so a page request that writes
+--   the session is not starved by a long build.
+treeInsertChunk :: Int
+treeInsertChunk = 200
+
+-- | Split a list into chunks of at most @n@ elements.
+chunksOfN :: Int -> [a] -> [[a]]
+chunksOfN _ [] = []
+chunksOfN n xs = let (h, t) = DL.splitAt n xs in h : chunksOfN n t
+
+-- | Has a protocol tree been built completely?  The event rows are inserted in
+--   one transaction together with a @TreeBuilt@ marker, so the marker is what
+--   says "this tree is complete" -- a tree whose build was interrupted has no
+--   marker and is rebuilt.
+treeBuilt :: Text -> Text -> DB Bool
+treeBuilt protocol eve = do
+    rows <- selectList [TreeBuiltProtocol ==. protocol, TreeBuiltEve ==. eve] [LimitTo 1]
+    case rows of
+      []    -> return False
+      (_:_) -> return True
+
+-- | Record a completed tree.  Called inside the same transaction as the rows.
+markTreeBuilt :: Text -> Text -> DB ()
+markTreeBuilt protocol eve = insert_ (TreeBuilt protocol eve)
+
+-- | Ensure a protocol tree is present and complete: build it, under the
+--   protocol's lock, unless its completion marker is already there.
+ensureTreeBuilt :: Text -> Text -> Handler () -> Handler ()
+ensureTreeBuilt protocol eve build = do
+    built <- runDB $ treeBuilt protocol eve
+    if built then return () else
+      liftHandler $ withTreeBuildLock protocol $ do
+        builtAgain <- runDB $ treeBuilt protocol eve
+        if builtAgain then return () else build
+
+-- | Serialise the (expensive) construction of a protocol event tree.  The tree
+--   is built on the first request that finds its table empty, which can take
+--   minutes; every build is wrapped in this lock and re-checks the table inside
+--   it, so a concurrent first request waits instead of building a second tree.
+withTreeBuildLock :: Text -> Handler a -> Handler a
+withTreeBuildLock protocol action = do
+    app <- getYesod
+    let locks = appTreeBuildLocks app
+    case M.lookup protocol locks of
+      Nothing   -> action
+      Just lock -> bracket_ (liftIO $ takeMVar lock) (liftIO $ putMVar lock ()) action
+
+-- | The verdict of a bounded check.  The stored event tree only contains traces
+--   within the exploration bounds, so a negative result is a statement about
+--   those bounds and nothing more; the message says so explicitly.
+boundedVerdict :: Int -> Int -> Int -> Text
+boundedVerdict depth internalDepth nCounterexamples =
+  (if nCounterexamples == 0
+     then "No safety violation found within "
+     else T.pack (show nCounterexamples) <> " counterexample(s) found within ")
+  <> T.pack (show depth) <> " visible steps and "
+  <> T.pack (show internalDepth) <> " internal steps"
+  <> (if nCounterexamples == 0
+        then " -- a bounded result: a violation may still exist beyond these bounds."
+        else " -- a bounded result.")
 
 -- | Format an event for display by using the following pattern:
 --   ch[src-->desc].msg

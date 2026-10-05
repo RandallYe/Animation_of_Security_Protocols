@@ -9,3 +9,6 @@ database:
   database: animation-web-ui_test.sqlite3
 
 auth-dummy-login: true
+
+# Do not spend minutes exploring during the test suite
+event-tree-preload: false

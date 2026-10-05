@@ -244,7 +244,7 @@ definition PIntruder0:: "dagent \<Rightarrow> dnonce \<Rightarrow> dmsg list \<R
        do { 
             \<comment> \<open> Intruder can hear anything Alice and Bob can send \<close>
             (A, I, B, m) \<leftarrow> inp_in hear (set (A_I_snd_msg Alice (NonceMap Alice) @ B_I_snd_msg Bob (NonceMap Bob)));
-            Ret (True, breakm (List.insert m knows), sec)
+            Ret (True, breakl (List.insert m knows), sec)
        }
     \<box> \<^cancel>\<open>do { inp_in fake (set [(A, B, m'). A \<leftarrow> [I], B \<leftarrow> removeAll I AllAgents, B \<noteq> Server, 
               m' \<leftarrow> (build\<^sub>n_1 (knows))]); 
@@ -334,7 +334,7 @@ value "rename_I"
 
 definition "PIntruder = rename' (PIntruder2 Intruder (NonceMap Intruder) InitKnows AllSecrets) (set rename_I)"
 
-(* animate_sec "PIntruder" *)
+(* animate_sec_sound "PIntruder" *)
 
 subsubsection \<open> Server \<close>
 text \<open> Now ITree_Iteration.iter is different from the previous one and we use the previous one.
@@ -385,7 +385,7 @@ definition NSPK7 where
     ((PAlice \<parallel>\<^bsub> set terminate_event \<^esub> PBob) \<parallel>\<^bsub> Events_A_B_S \<^esub> PServer) 
     \<parallel>\<^bsub> Events_A_B_S_I \<^esub> PIntruder"
 
-animate_sec NSPK7
+animate_sec_sound NSPK7
 
 (*
 Reachability:

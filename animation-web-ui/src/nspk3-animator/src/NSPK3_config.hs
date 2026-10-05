@@ -7,7 +7,9 @@ import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
   error, id, return, not, fst, snd, map, filter, concat, concatMap, reverse,
   zip, null, takeWhile, dropWhile, all, any, Integer, negate, abs, divMod,
   String, Bool(True, False), Maybe(Nothing, Just));
+import Data.Bits ((.&.), (.|.));
 import qualified Prelude;
+import qualified Data.Bits;
 import qualified Rational;
 import qualified List;
 import qualified Numeral_Type;
@@ -98,7 +100,7 @@ initKnows ::
      (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
      (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
      (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1)) Numeral_Type.Num1
-     Numeral_Type.Num1];
+     Numeral_Type.Num1 (Numeral_Type.Bit0 Numeral_Type.Num1)];
 initKnows =
   Sec_Messages.agentsLst
     [Sec_Messages.Agent (FSNat.Nmk Arith.zero_nat),
@@ -258,7 +260,7 @@ allSecrets ::
      (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
      (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
      (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1)) Numeral_Type.Num1
-     Numeral_Type.Num1];
+     Numeral_Type.Num1 (Numeral_Type.Bit0 Numeral_Type.Num1)];
 allSecrets =
   List.removeAll
     (Sec_Messages.MNon

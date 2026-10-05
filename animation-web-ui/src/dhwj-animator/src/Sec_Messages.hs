@@ -3,14 +3,14 @@
 module
   Sec_Messages(Dagent(..), equal_dagent, Dsig(..), equal_dsig, Dbitmask(..),
                 equal_dbitmask, Dkey(..), equal_dkey, Dmsg(..), equal_dmsg,
-                Chan(..), equal_chan, last4, pKsLst, atomic, less_eq_dbitmask,
-                is_MWat, mwb, mbm, break_lst, atomics, breakm, expGLst, ks, mn,
-                allExpGs, un_env_C, is_env_C, env, un_sig_C, is_sig_C, sig, mjm,
-                mwm, pk_of_sk, agentsLst, noncesLst, buildable, un_cjam_C,
-                is_cjam_C, cjam, un_leak_C, is_leak_C, leak, un_recv_C,
-                is_recv_C, recv, un_send_C, is_send_C, send, mmek, msek, msem,
-                swap_mod_exp, un_terminate_C, is_terminate_C, terminate,
-                filter_buildable)
+                Chan(..), equal_chan, last4, pKsLst, submsg_list, submsgs_list,
+                less_eq_dbitmask, one_step, step_once, iter_closure, breakl,
+                expGLst, ks, mn, allExpGs, un_env_C, is_env_C, env, un_sig_C,
+                is_sig_C, sig, mjm, mwm, pk_of_sk, agentsLst, noncesLst,
+                buildable, un_cjam_C, is_cjam_C, cjam, un_leak_C, is_leak_C,
+                leak, un_recv_C, is_recv_C, recv, un_send_C, is_send_C, send,
+                mmek, msek, msem, swap_mod_exp, un_terminate_C, is_terminate_C,
+                terminate, filter_buildable)
   where {
 
 import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
@@ -18,12 +18,14 @@ import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
   error, id, return, not, fst, snd, map, filter, concat, concatMap, reverse,
   zip, null, takeWhile, dropWhile, all, any, Integer, negate, abs, divMod,
   String, Bool(True, False), Maybe(Nothing, Just));
+import Data.Bits ((.&.), (.|.));
 import qualified Prelude;
+import qualified Data.Bits;
 import qualified Rational;
 import qualified Channel_Type;
 import qualified Prisms;
-import qualified HOL;
 import qualified List;
+import qualified Arith;
 import qualified Set;
 import qualified FSNat;
 import qualified Typerep;
@@ -367,23 +369,30 @@ pKsLst ::
       Type_Length.Len g) => [Dkey a b] -> [Dmsg c d a b e f g];
 pKsLst pks = map MK pks;
 
-atomic ::
-  forall a b c d e f g.
+submsg_list ::
+  forall a b c d e f.
     (Type_Length.Len a, Type_Length.Len b, Type_Length.Len c, Type_Length.Len d,
-      Type_Length.Len e, Type_Length.Len f,
-      Type_Length.Len g) => Dmsg a b c d e f g -> [Dmsg a b c d e f g];
-atomic (MAg m) = [MAg m];
-atomic (MNon m) = [MNon m];
-atomic (MK m) = [MK m];
-atomic (MPair m1 m2) = List.union (atomic m1) (atomic m2);
-atomic (MAEnc m k) = atomic m;
-atomic (MSig m k) = atomic m;
-atomic (MSEnc m k) = atomic m;
-atomic (MExpg m) = [MExpg m];
-atomic (MModExp m k) = atomic m;
-atomic (MBitm b) = [MBitm b];
-atomic (MWat m k) = atomic m;
-atomic (MJam m k) = atomic m;
+      Type_Length.Len e,
+      Type_Length.Len f) => Dmsg a b c c d e f -> [Dmsg a b c c d e f];
+submsg_list (MAg a) = [MAg a];
+submsg_list (MNon a) = [MNon a];
+submsg_list (MK a) = [MK a];
+submsg_list (MPair m1 m2) = MPair m1 m2 : submsg_list m1 ++ submsg_list m2;
+submsg_list (MAEnc m k) = MAEnc m k : submsg_list m ++ submsg_list k;
+submsg_list (MSig m k) = MSig m k : submsg_list m ++ submsg_list k;
+submsg_list (MSEnc m k) = MSEnc m k : submsg_list m ++ submsg_list k;
+submsg_list (MExpg a) = [MExpg a];
+submsg_list (MModExp m k) = MModExp m k : submsg_list m ++ submsg_list k;
+submsg_list (MBitm b) = [MBitm b];
+submsg_list (MWat m k) = MWat m k : submsg_list m ++ submsg_list k;
+submsg_list (MJam m k) = MJam m k : submsg_list m ++ submsg_list k;
+
+submsgs_list ::
+  forall a b c d e f.
+    (Type_Length.Len a, Type_Length.Len b, Type_Length.Len c, Type_Length.Len d,
+      Type_Length.Len e,
+      Type_Length.Len f) => [Dmsg a b c c d e f] -> [Dmsg a b c c d e f];
+submsgs_list xs = List.remdups (concatMap submsg_list xs);
 
 less_eq_dbitmask ::
   forall a b.
@@ -400,264 +409,152 @@ less_eq_dbitmask =
         });
     }));
 
-is_MWat ::
-  forall a b c d e f g.
-    (Type_Length.Len a, Type_Length.Len b, Type_Length.Len c, Type_Length.Len d,
-      Type_Length.Len e, Type_Length.Len f,
-      Type_Length.Len g) => Dmsg a b c d e f g -> Bool;
-is_MWat (MAg x1) = False;
-is_MWat (MNon x2) = False;
-is_MWat (MK x3) = False;
-is_MWat (MPair x41 x42) = False;
-is_MWat (MAEnc x51 x52) = False;
-is_MWat (MSig x61 x62) = False;
-is_MWat (MSEnc x71 x72) = False;
-is_MWat (MExpg x8) = False;
-is_MWat (MModExp x91 x92) = False;
-is_MWat (MBitm x10) = False;
-is_MWat (MWat x111 x112) = True;
-is_MWat (MJam x121 x122) = False;
-
-mwb ::
-  forall a b c d e f g.
-    (Type_Length.Len a, Type_Length.Len b, Type_Length.Len c, Type_Length.Len d,
-      Type_Length.Len e, Type_Length.Len f,
-      Type_Length.Len g) => Dmsg a b c d e f g -> Dmsg a b c d e f g;
-mwb (MWat x111 x112) = x112;
-
-mbm ::
-  forall a b c d e f g.
-    (Type_Length.Len a, Type_Length.Len b, Type_Length.Len c, Type_Length.Len d,
-      Type_Length.Len e, Type_Length.Len f,
-      Type_Length.Len g) => Dmsg a b c d e f g -> Dbitmask f g;
-mbm (MBitm x10) = x10;
-
-break_lst ::
+one_step ::
   forall a b c d e f.
     (Type_Length.Len a, Type_Length.Len b, Type_Length.Len c, Type_Length.Len d,
       Type_Length.Len e,
-      Type_Length.Len f) => [Dmsg a b c c d e f] ->
-                              [Dmsg a b c c d e f] ->
-                                Set.Set (Dmsg a b c c d e f) ->
-                                  [Dmsg a b c c d e f];
-break_lst [] ams asa = ams;
-break_lst (MK k : xs) ams asa = break_lst xs (List.insert (MK k) ams) asa;
-break_lst (MAg a : xs) ams asa = break_lst xs (List.insert (MAg a) ams) asa;
-break_lst (MNon a : xs) ams asa = break_lst xs (List.insert (MNon a) ams) asa;
-break_lst (MPair a b : xs) ams asa =
-  break_lst xs
-    (List.remdups (break_lst [a] ams asa ++ break_lst [b] ams asa ++ ams)) asa;
-break_lst (MAEnc a (MK (Kp k)) : xs) ams asa =
-  (if Set.member (MK (Ks k)) asa
-    then (if List.member ams (MK (Ks k))
-           then break_lst (a : xs) (List.insert (MAEnc a (MK (Kp k))) ams) asa
-           else let {
-                  rams = break_lst xs ams asa;
-                } in (if List.member rams (MK (Ks k))
-                       then break_lst (a : xs)
-                              (List.insert (MAEnc a (MK (Kp k))) ams) asa
-                       else break_lst xs (List.insert (MAEnc a (MK (Kp k))) ams)
-                              asa))
-    else break_lst xs (List.insert (MAEnc a (MK (Kp k))) ams) asa);
-break_lst (MSig a (MK (Ks k)) : xs) ams asa =
-  (if Set.member (MK (Kp k)) asa
-    then (if List.member ams (MK (Kp k))
-           then break_lst (a : xs) (List.insert (MSig a (MK (Ks k))) ams) asa
-           else let {
-                  rams = break_lst xs ams asa;
-                } in (if List.member rams (MK (Kp k))
-                       then break_lst (a : xs)
-                              (List.insert (MSig a (MK (Ks k))) ams) asa
-                       else break_lst xs (List.insert (MSig a (MK (Ks k))) ams)
-                              asa))
-    else break_lst xs (List.insert (MSig a (MK (Ks k))) ams) asa);
-break_lst (MSEnc m k : xs) ams asa =
-  (case k of {
-    MAg _ -> break_lst xs (List.insert (MSEnc m k) ams) asa;
-    MNon _ -> break_lst xs (List.insert (MSEnc m k) ams) asa;
-    MK (Kp _) -> break_lst xs (List.insert (MSEnc m k) ams) asa;
-    MK (Ks ka) ->
-      (if Set.member (MK (Ks ka)) asa
-        then (if List.member ams (MK (Ks ka))
-               then break_lst (m : xs) (List.insert (MSEnc m (MK (Ks ka))) ams)
-                      asa
-               else let {
-                      rams = break_lst xs ams asa;
-                    } in (if List.member rams (MK (Ks ka))
-                           then break_lst (m : xs)
-                                  (List.insert (MAEnc m (MK (Ks ka))) ams) asa
-                           else break_lst xs
-                                  (List.insert (MAEnc m (MK (Ks ka))) ams) asa))
-        else break_lst xs (List.insert (MAEnc m (MK (Ks ka))) ams) asa);
-    MPair _ _ -> break_lst xs (List.insert (MSEnc m k) ams) asa;
-    MAEnc _ _ -> break_lst xs (List.insert (MSEnc m k) ams) asa;
-    MSig _ _ -> break_lst xs (List.insert (MSEnc m k) ams) asa;
-    MSEnc _ _ -> break_lst xs (List.insert (MSEnc m k) ams) asa;
-    MExpg _ -> break_lst xs (List.insert (MSEnc m k) ams) asa;
-    MModExp (MAg _) _ -> break_lst xs (List.insert (MSEnc m k) ams) asa;
-    MModExp (MNon _) _ -> break_lst xs (List.insert (MSEnc m k) ams) asa;
-    MModExp (MK _) _ -> break_lst xs (List.insert (MSEnc m k) ams) asa;
-    MModExp (MPair _ _) _ -> break_lst xs (List.insert (MSEnc m k) ams) asa;
-    MModExp (MAEnc _ _) _ -> break_lst xs (List.insert (MSEnc m k) ams) asa;
-    MModExp (MSig _ _) _ -> break_lst xs (List.insert (MSEnc m k) ams) asa;
-    MModExp (MSEnc _ _) _ -> break_lst xs (List.insert (MSEnc m k) ams) asa;
-    MModExp (MExpg _) _ -> break_lst xs (List.insert (MSEnc m k) ams) asa;
-    MModExp (MModExp (MAg _) _) _ ->
-      break_lst xs (List.insert (MSEnc m k) ams) asa;
-    MModExp (MModExp (MNon _) _) _ ->
-      break_lst xs (List.insert (MSEnc m k) ams) asa;
-    MModExp (MModExp (MK _) _) _ ->
-      break_lst xs (List.insert (MSEnc m k) ams) asa;
-    MModExp (MModExp (MPair _ _) _) _ ->
-      break_lst xs (List.insert (MSEnc m k) ams) asa;
-    MModExp (MModExp (MAEnc _ _) _) _ ->
-      break_lst xs (List.insert (MSEnc m k) ams) asa;
-    MModExp (MModExp (MSig _ _) _) _ ->
-      break_lst xs (List.insert (MSEnc m k) ams) asa;
-    MModExp (MModExp (MSEnc _ _) _) _ ->
-      break_lst xs (List.insert (MSEnc m k) ams) asa;
-    MModExp (MModExp (MExpg gn) a) b ->
-      (if List.member ams (MModExp (MExpg gn) a) && List.member ams b ||
-            (List.member ams (MModExp (MExpg gn) b) && List.member ams a ||
-              List.member ams (MExpg gn) &&
-                List.member ams a && List.member ams b)
-        then break_lst (m : xs) (List.insert (MSEnc m k) ams) asa
-        else let {
-               rams = break_lst xs ams asa;
-             } in (if List.member rams (MModExp (MExpg gn) a) &&
-                        List.member rams b ||
-                        (List.member rams (MModExp (MExpg gn) b) &&
-                           List.member rams a ||
-                          List.member rams (MExpg gn) &&
-                            List.member rams a && List.member rams b)
-                    then break_lst (m : xs) (List.insert (MSEnc m k) ams) asa
-                    else break_lst xs (List.insert (MSEnc m k) ams) asa));
-    MModExp (MModExp (MModExp _ _) _) _ ->
-      break_lst xs (List.insert (MSEnc m k) ams) asa;
-    MModExp (MModExp (MBitm _) _) _ ->
-      break_lst xs (List.insert (MSEnc m k) ams) asa;
-    MModExp (MModExp (MWat _ _) _) _ ->
-      break_lst xs (List.insert (MSEnc m k) ams) asa;
-    MModExp (MModExp (MJam _ _) _) _ ->
-      break_lst xs (List.insert (MSEnc m k) ams) asa;
-    MModExp (MBitm _) _ -> break_lst xs (List.insert (MSEnc m k) ams) asa;
-    MModExp (MWat _ _) _ -> break_lst xs (List.insert (MSEnc m k) ams) asa;
-    MModExp (MJam _ _) _ -> break_lst xs (List.insert (MSEnc m k) ams) asa;
-    MBitm _ -> break_lst xs (List.insert (MSEnc m k) ams) asa;
-    MWat _ _ -> break_lst xs (List.insert (MSEnc m k) ams) asa;
-    MJam _ _ -> break_lst xs (List.insert (MSEnc m k) ams) asa;
+      Type_Length.Len f) => Dmsg a b c c d e f ->
+                              Set.Set (Dmsg a b c c d e f) ->
+                                [Dmsg a b c c d e f];
+one_step m k =
+  (case m of {
+    MAg _ -> [];
+    MNon _ -> [];
+    MK _ -> [];
+    MPair m1 m2 -> [m1, m2];
+    MAEnc _ (MAg _) -> [];
+    MAEnc _ (MNon _) -> [];
+    MAEnc ma (MK (Kp ka)) -> (if Set.member (MK (Ks ka)) k then [ma] else []);
+    MAEnc _ (MK (Ks _)) -> [];
+    MAEnc _ (MPair _ _) -> [];
+    MAEnc _ (MAEnc _ _) -> [];
+    MAEnc _ (MSig _ _) -> [];
+    MAEnc _ (MSEnc _ _) -> [];
+    MAEnc _ (MExpg _) -> [];
+    MAEnc _ (MModExp _ _) -> [];
+    MAEnc _ (MBitm _) -> [];
+    MAEnc _ (MWat _ _) -> [];
+    MAEnc _ (MJam _ _) -> [];
+    MSig _ (MAg _) -> [];
+    MSig _ (MNon _) -> [];
+    MSig _ (MK (Kp _)) -> [];
+    MSig ma (MK (Ks ka)) -> (if Set.member (MK (Kp ka)) k then [ma] else []);
+    MSig _ (MPair _ _) -> [];
+    MSig _ (MAEnc _ _) -> [];
+    MSig _ (MSig _ _) -> [];
+    MSig _ (MSEnc _ _) -> [];
+    MSig _ (MExpg _) -> [];
+    MSig _ (MModExp _ _) -> [];
+    MSig _ (MBitm _) -> [];
+    MSig _ (MWat _ _) -> [];
+    MSig _ (MJam _ _) -> [];
+    MSEnc _ (MAg _) -> [];
+    MSEnc _ (MNon _) -> [];
+    MSEnc _ (MK (Kp _)) -> [];
+    MSEnc ma (MK (Ks ka)) -> (if Set.member (MK (Ks ka)) k then [ma] else []);
+    MSEnc _ (MPair _ _) -> [];
+    MSEnc _ (MAEnc _ _) -> [];
+    MSEnc _ (MSig _ _) -> [];
+    MSEnc _ (MSEnc _ _) -> [];
+    MSEnc _ (MExpg _) -> [];
+    MSEnc _ (MModExp (MAg _) _) -> [];
+    MSEnc _ (MModExp (MNon _) _) -> [];
+    MSEnc _ (MModExp (MK _) _) -> [];
+    MSEnc _ (MModExp (MPair _ _) _) -> [];
+    MSEnc _ (MModExp (MAEnc _ _) _) -> [];
+    MSEnc _ (MModExp (MSig _ _) _) -> [];
+    MSEnc _ (MModExp (MSEnc _ _) _) -> [];
+    MSEnc _ (MModExp (MExpg _) _) -> [];
+    MSEnc _ (MModExp (MModExp (MAg _) _) _) -> [];
+    MSEnc _ (MModExp (MModExp (MNon _) _) _) -> [];
+    MSEnc _ (MModExp (MModExp (MK _) _) _) -> [];
+    MSEnc _ (MModExp (MModExp (MPair _ _) _) _) -> [];
+    MSEnc _ (MModExp (MModExp (MAEnc _ _) _) _) -> [];
+    MSEnc _ (MModExp (MModExp (MSig _ _) _) _) -> [];
+    MSEnc _ (MModExp (MModExp (MSEnc _ _) _) _) -> [];
+    MSEnc ma (MModExp (MModExp (MExpg gn) a) b) ->
+      (if Set.member (MModExp (MExpg gn) a) k && Set.member b k ||
+            (Set.member (MModExp (MExpg gn) b) k && Set.member a k ||
+              Set.member (MExpg gn) k && Set.member a k && Set.member b k)
+        then [ma] else []);
+    MSEnc _ (MModExp (MModExp (MModExp _ _) _) _) -> [];
+    MSEnc _ (MModExp (MModExp (MBitm _) _) _) -> [];
+    MSEnc _ (MModExp (MModExp (MWat _ _) _) _) -> [];
+    MSEnc _ (MModExp (MModExp (MJam _ _) _) _) -> [];
+    MSEnc _ (MModExp (MBitm _) _) -> [];
+    MSEnc _ (MModExp (MWat _ _) _) -> [];
+    MSEnc _ (MModExp (MJam _ _) _) -> [];
+    MSEnc _ (MBitm _) -> [];
+    MSEnc _ (MWat _ _) -> [];
+    MSEnc _ (MJam _ _) -> [];
+    MExpg _ -> [];
+    MModExp _ _ -> [];
+    MBitm _ -> [];
+    MWat ma _ -> [ma];
+    MJam (MAg _) _ -> [];
+    MJam (MNon _) _ -> [];
+    MJam (MK _) _ -> [];
+    MJam (MPair _ _) _ -> [];
+    MJam (MAEnc _ _) _ -> [];
+    MJam (MSig _ _) _ -> [];
+    MJam (MSEnc _ _) _ -> [];
+    MJam (MExpg _) _ -> [];
+    MJam (MModExp _ _) _ -> [];
+    MJam (MBitm _) _ -> [];
+    MJam (MWat _ (MAg _)) _ -> [];
+    MJam (MWat _ (MNon _)) _ -> [];
+    MJam (MWat _ (MK _)) _ -> [];
+    MJam (MWat _ (MPair _ _)) _ -> [];
+    MJam (MWat _ (MAEnc _ _)) _ -> [];
+    MJam (MWat _ (MSig _ _)) _ -> [];
+    MJam (MWat _ (MSEnc _ _)) _ -> [];
+    MJam (MWat _ (MExpg _)) _ -> [];
+    MJam (MWat _ (MModExp _ _)) _ -> [];
+    MJam (MWat _ (MBitm _)) (MAg _) -> [];
+    MJam (MWat _ (MBitm _)) (MNon _) -> [];
+    MJam (MWat _ (MBitm _)) (MK _) -> [];
+    MJam (MWat _ (MBitm _)) (MPair _ _) -> [];
+    MJam (MWat _ (MBitm _)) (MAEnc _ _) -> [];
+    MJam (MWat _ (MBitm _)) (MSig _ _) -> [];
+    MJam (MWat _ (MBitm _)) (MSEnc _ _) -> [];
+    MJam (MWat _ (MBitm _)) (MExpg _) -> [];
+    MJam (MWat _ (MBitm _)) (MModExp _ _) -> [];
+    MJam (MWat ma (MBitm bb)) (MBitm b) ->
+      (if equal_dbitmask b Null ||
+            less_eq_dbitmask b bb && Set.member (MBitm b) k
+        then [ma] else []);
+    MJam (MWat _ (MBitm _)) (MWat _ _) -> [];
+    MJam (MWat _ (MBitm _)) (MJam _ _) -> [];
+    MJam (MWat _ (MWat _ _)) _ -> [];
+    MJam (MWat _ (MJam _ _)) _ -> [];
+    MJam (MJam _ _) _ -> [];
   });
-break_lst (MExpg a : xs) ams asa = break_lst xs (List.insert (MExpg a) ams) asa;
-break_lst (MModExp a b : xs) ams asa =
-  break_lst xs (List.insert (MModExp a b) ams) asa;
-break_lst (MBitm b : xs) ams asa = break_lst xs (List.insert (MBitm b) ams) asa;
-break_lst (MWat m b : xs) ams asa = break_lst xs (List.insert m ams) asa;
-break_lst (MJam m (MBitm b) : xs) ams asa =
-  (if not (equal_dbitmask b Null)
-    then (if is_MWat m &&
-               less_eq_dbitmask b (mbm (mwb m)) && Set.member (MBitm b) asa
-           then (if List.member ams (MBitm b)
-                  then break_lst (m : xs) (List.insert (MJam m (MBitm b)) ams)
-                         asa
-                  else let {
-                         rams = break_lst xs ams asa;
-                       } in (if List.member rams (MBitm b)
-                              then break_lst (m : xs)
-                                     (List.insert (MJam m (MBitm b)) ams) asa
-                              else break_lst xs
-                                     (List.insert (MJam m (MBitm b)) ams) asa))
-           else (if List.member ams (MBitm b)
-                  then break_lst (m : xs) (List.insert (MJam m (MBitm b)) ams)
-                         asa
-                  else break_lst xs (List.insert (MJam m (MBitm b)) ams) asa))
-    else break_lst (m : xs) (List.insert (MJam m (MBitm b)) ams) asa);
-break_lst (MAEnc v (MAg vb) : xs) ams asa =
-  break_lst xs (List.insert (MAEnc v (MAg vb)) ams) asa;
-break_lst (MAEnc v (MNon vb) : xs) ams asa =
-  break_lst xs (List.insert (MAEnc v (MNon vb)) ams) asa;
-break_lst (MAEnc v (MK (Ks vc)) : xs) ams asa =
-  break_lst xs (List.insert (MAEnc v (MK (Ks vc))) ams) asa;
-break_lst (MAEnc v (MPair vb vc) : xs) ams asa =
-  break_lst xs (List.insert (MAEnc v (MPair vb vc)) ams) asa;
-break_lst (MAEnc v (MAEnc vb vc) : xs) ams asa =
-  break_lst xs (List.insert (MAEnc v (MAEnc vb vc)) ams) asa;
-break_lst (MAEnc v (MSig vb vc) : xs) ams asa =
-  break_lst xs (List.insert (MAEnc v (MSig vb vc)) ams) asa;
-break_lst (MAEnc v (MSEnc vb vc) : xs) ams asa =
-  break_lst xs (List.insert (MAEnc v (MSEnc vb vc)) ams) asa;
-break_lst (MAEnc v (MExpg vb) : xs) ams asa =
-  break_lst xs (List.insert (MAEnc v (MExpg vb)) ams) asa;
-break_lst (MAEnc v (MModExp vb vc) : xs) ams asa =
-  break_lst xs (List.insert (MAEnc v (MModExp vb vc)) ams) asa;
-break_lst (MAEnc v (MBitm vb) : xs) ams asa =
-  break_lst xs (List.insert (MAEnc v (MBitm vb)) ams) asa;
-break_lst (MAEnc v (MWat vb vc) : xs) ams asa =
-  break_lst xs (List.insert (MAEnc v (MWat vb vc)) ams) asa;
-break_lst (MAEnc v (MJam vb vc) : xs) ams asa =
-  break_lst xs (List.insert (MAEnc v (MJam vb vc)) ams) asa;
-break_lst (MSig v (MAg vb) : xs) ams asa =
-  break_lst xs (List.insert (MSig v (MAg vb)) ams) asa;
-break_lst (MSig v (MNon vb) : xs) ams asa =
-  break_lst xs (List.insert (MSig v (MNon vb)) ams) asa;
-break_lst (MSig v (MK (Kp vc)) : xs) ams asa =
-  break_lst xs (List.insert (MSig v (MK (Kp vc))) ams) asa;
-break_lst (MSig v (MPair vb vc) : xs) ams asa =
-  break_lst xs (List.insert (MSig v (MPair vb vc)) ams) asa;
-break_lst (MSig v (MAEnc vb vc) : xs) ams asa =
-  break_lst xs (List.insert (MSig v (MAEnc vb vc)) ams) asa;
-break_lst (MSig v (MSig vb vc) : xs) ams asa =
-  break_lst xs (List.insert (MSig v (MSig vb vc)) ams) asa;
-break_lst (MSig v (MSEnc vb vc) : xs) ams asa =
-  break_lst xs (List.insert (MSig v (MSEnc vb vc)) ams) asa;
-break_lst (MSig v (MExpg vb) : xs) ams asa =
-  break_lst xs (List.insert (MSig v (MExpg vb)) ams) asa;
-break_lst (MSig v (MModExp vb vc) : xs) ams asa =
-  break_lst xs (List.insert (MSig v (MModExp vb vc)) ams) asa;
-break_lst (MSig v (MBitm vb) : xs) ams asa =
-  break_lst xs (List.insert (MSig v (MBitm vb)) ams) asa;
-break_lst (MSig v (MWat vb vc) : xs) ams asa =
-  break_lst xs (List.insert (MSig v (MWat vb vc)) ams) asa;
-break_lst (MSig v (MJam vb vc) : xs) ams asa =
-  break_lst xs (List.insert (MSig v (MJam vb vc)) ams) asa;
-break_lst (MJam v (MAg vb) : xs) ams asa =
-  break_lst xs (List.insert (MJam v (MAg vb)) ams) asa;
-break_lst (MJam v (MNon vb) : xs) ams asa =
-  break_lst xs (List.insert (MJam v (MNon vb)) ams) asa;
-break_lst (MJam v (MK vb) : xs) ams asa =
-  break_lst xs (List.insert (MJam v (MK vb)) ams) asa;
-break_lst (MJam v (MPair vb vc) : xs) ams asa =
-  break_lst xs (List.insert (MJam v (MPair vb vc)) ams) asa;
-break_lst (MJam v (MAEnc vb vc) : xs) ams asa =
-  break_lst xs (List.insert (MJam v (MAEnc vb vc)) ams) asa;
-break_lst (MJam v (MSig vb vc) : xs) ams asa =
-  break_lst xs (List.insert (MJam v (MSig vb vc)) ams) asa;
-break_lst (MJam v (MSEnc vb vc) : xs) ams asa =
-  break_lst xs (List.insert (MJam v (MSEnc vb vc)) ams) asa;
-break_lst (MJam v (MExpg vb) : xs) ams asa =
-  break_lst xs (List.insert (MJam v (MExpg vb)) ams) asa;
-break_lst (MJam v (MModExp vb vc) : xs) ams asa =
-  break_lst xs (List.insert (MJam v (MModExp vb vc)) ams) asa;
-break_lst (MJam v (MWat vb vc) : xs) ams asa =
-  break_lst xs (List.insert (MJam v (MWat vb vc)) ams) asa;
-break_lst (MJam v (MJam vb vc) : xs) ams asa =
-  break_lst xs (List.insert (MJam v (MJam vb vc)) ams) asa;
 
-atomics ::
-  forall a b c d e f g.
-    (Type_Length.Len a, Type_Length.Len b, Type_Length.Len c, Type_Length.Len d,
-      Type_Length.Len e, Type_Length.Len f,
-      Type_Length.Len g) => [Dmsg a b c d e f g] -> [Dmsg a b c d e f g];
-atomics xs = concatMap atomic xs;
-
-breakm ::
+step_once ::
   forall a b c d e f.
     (Type_Length.Len a, Type_Length.Len b, Type_Length.Len c, Type_Length.Len d,
       Type_Length.Len e,
       Type_Length.Len f) => [Dmsg a b c c d e f] -> [Dmsg a b c c d e f];
-breakm xs = let {
-              asa = Set.Set (atomics xs);
-              ys = break_lst xs [] asa;
-            } in break_lst ys [] asa;
+step_once k = List.remdups (k ++ concatMap (\ m -> one_step m (Set.Set k)) k);
+
+iter_closure ::
+  forall a b c d e f.
+    (Type_Length.Len a, Type_Length.Len b, Type_Length.Len c, Type_Length.Len d,
+      Type_Length.Len e,
+      Type_Length.Len f) => Arith.Nat ->
+                              [Dmsg a b c c d e f] -> [Dmsg a b c c d e f];
+iter_closure n k =
+  (if Arith.equal_nat n Arith.zero_nat then k
+    else iter_closure (Arith.minus_nat n Arith.one_nat) (step_once k));
+
+breakl ::
+  forall a b c d e f.
+    (Type_Length.Len a, Type_Length.Len b, Type_Length.Len c, Type_Length.Len d,
+      Type_Length.Len e,
+      Type_Length.Len f) => [Dmsg a b c c d e f] -> [Dmsg a b c c d e f];
+breakl xs =
+  iter_closure (Arith.plus_nat (List.size_list (submsgs_list xs)) Arith.one_nat)
+    (List.remdups xs);
 
 expGLst ::
   forall a b c d e f g.
@@ -802,7 +699,7 @@ buildable m ms =
            MModExp ma k -> buildable ma ms && buildable k ms;
            MBitm _ -> False;
            MWat ma k -> buildable ma ms && buildable k ms;
-           MJam ma k -> buildable ma ms && buildable k ms;
+           MJam _ _ -> False;
          }));
 
 un_cjam_C ::

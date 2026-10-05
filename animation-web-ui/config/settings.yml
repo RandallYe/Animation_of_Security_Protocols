@@ -41,6 +41,36 @@ copyright: 2024 Kangfeng Ye
 
 plantuml-url: http://localhost:8080/plantuml/svg
 
-# The maximum depth of an event tree to be explored and stored in DB
-event-tree-depth: 20 
+# The maximum depth of an event tree to be explored and stored in DB, and the
+# number of internal steps the exploration may take between visible events.
+# These two are the fallback defaults; each protocol normally overrides them
+# under event-tree-bounds below.
+#
+# The cost is driven by how many traces the model has, and the models differ by
+# orders of magnitude.  Measured single explorations (GHC 9.2.8, -O0):
+#   nspk3  20/100 -> 14 214 traces,  ~95 s   (saturates: depth 15+ adds nothing)
+#   nslpk3 20/100 -> 14 162 traces,  ~98 s   (saturates)
+#   nswj3  20/100 -> does not finish in 25 minutes
+#   nswj3  12/5   ->  6 919 traces, ~157 s
+#   nswj3  10/5   ->  2 329 traces,  ~18 s
+#   dhwj   20/100 -> 16 694 traces, ~292 s
+#   dhwj   12/5   -> 10 966 traces,  ~75 s
+#
+# NOTE: for all four models the internal-step bound made no difference at these
+# depths (mx = 3 and mx = 100 give identical trace sets); it is the depth that
+# costs.  It still matters for completeness -- mx = 0 collapses the exploration.
+event-tree-depth: 20
 event-tree-internal-depth: 100
+
+# Build the event trees of all protocols in the background at startup, so that
+# the first visit to a page does not have to wait for its exploration.  A page
+# that still finds an empty table waits for the same build (serialised by a
+# per-protocol lock) instead of building a second tree.
+event-tree-preload: true
+
+# Per-protocol overrides: protocol -> [depth, internal-depth]
+event-tree-bounds:
+  nspk3: [20, 100]
+  nslpk3: [20, 100]
+  nswj3: [12, 5]
+  dhwj: [12, 5]
