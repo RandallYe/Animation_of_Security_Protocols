@@ -490,7 +490,7 @@ msg2a a =
                   (FSNat.Nmk (Arith.nat_of_integer (2 :: Integer))))
                 b)))
           (NSWJ3_config.mkbma b))
-    (NSWJ3_config.allOtherAgentsa a);
+    (NSWJ3_config.allOtherAgents a);
 
 get_messages ::
   [(Sec_Messages.Dagent (Numeral_Type.Bit0 Numeral_Type.Num1),

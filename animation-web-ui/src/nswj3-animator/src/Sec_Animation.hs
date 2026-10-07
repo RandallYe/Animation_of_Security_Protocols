@@ -2,10 +2,10 @@
 
 module
   Sec_Animation(Skind(..), explore, checks, is_end, is_sig, is_leak, reaches,
-                 feasible, is_start, check_sig, stop_kind, check_corr,
-                 check_leak, follow_fuel, state_kind, is_terminate,
-                 check_leak_msg, check_terminate, check_corr_violation,
-                 check_authenticity)
+                 feasible, is_start, check_sig, is_honest, stop_kind,
+                 check_corr, check_leak, follow_fuel, state_kind, is_terminate,
+                 is_end_honest, matches_start, check_leak_msg, check_terminate,
+                 check_auth_violation, check_authenticity, check_corr_violation)
   where {
 
 import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
@@ -166,6 +166,15 @@ check_sig ::
                                   Set.Set [Sec_Messages.Chan a b c d e f g];
 check_sig n mx p = checks n mx p (any is_sig);
 
+is_honest ::
+  forall a.
+    (Type_Length.Len a, Typerep.Typerep a) => Sec_Messages.Dagent a -> Bool;
+is_honest a = (case a of {
+                Sec_Messages.Agent _ -> True;
+                Sec_Messages.Intruder -> False;
+                Sec_Messages.Server -> True;
+              });
+
 stop_kind :: forall a b. Arith.Nat -> Interaction_Trees.Itree a b -> Skind;
 stop_kind t p =
   (case p of {
@@ -255,6 +264,75 @@ is_terminate e = (case e of {
                    Sec_Messages.Terminate_C () -> True;
                  });
 
+is_end_honest ::
+  forall a b c d e f g.
+    (Type_Length.Len a, Typerep.Typerep a, Type_Length.Len b, Typerep.Typerep b,
+      Type_Length.Len c, Typerep.Typerep c, Type_Length.Len d,
+      Typerep.Typerep d, Type_Length.Len e, Typerep.Typerep e,
+      Type_Length.Len f, Typerep.Typerep f, Type_Length.Len g,
+      Typerep.Typerep g) => Sec_Messages.Chan a b c d e f g -> Bool;
+is_end_honest e =
+  (case e of {
+    Sec_Messages.Env_C _ -> False;
+    Sec_Messages.Send_C _ -> False;
+    Sec_Messages.Cjam_C _ -> False;
+    Sec_Messages.Cdejam_C _ -> False;
+    Sec_Messages.Recv_C _ -> False;
+    Sec_Messages.Leak_C _ -> False;
+    Sec_Messages.Sig_C (Sec_Messages.ClaimSecret _ _ _) -> False;
+    Sec_Messages.Sig_C (Sec_Messages.StartProt _ _ _ _) -> False;
+    Sec_Messages.Sig_C (Sec_Messages.EndProt s d _ _) ->
+      is_honest s && is_honest d;
+    Sec_Messages.Terminate_C _ -> False;
+  });
+
+matches_start ::
+  forall a b c d e f g.
+    (Type_Length.Len a, Typerep.Typerep a, Type_Length.Len b, Typerep.Typerep b,
+      Type_Length.Len c, Typerep.Typerep c, Type_Length.Len d,
+      Typerep.Typerep d, Type_Length.Len e, Typerep.Typerep e,
+      Type_Length.Len f, Typerep.Typerep f, Type_Length.Len g,
+      Typerep.Typerep g) => Sec_Messages.Chan a b c d e f g ->
+                              Sec_Messages.Chan a b c d e f g -> Bool;
+matches_start e_end e_start =
+  (case (e_end, e_start) of {
+    (Sec_Messages.Env_C _, _) -> False;
+    (Sec_Messages.Send_C _, _) -> False;
+    (Sec_Messages.Cjam_C _, _) -> False;
+    (Sec_Messages.Cdejam_C _, _) -> False;
+    (Sec_Messages.Recv_C _, _) -> False;
+    (Sec_Messages.Leak_C _, _) -> False;
+    (Sec_Messages.Sig_C (Sec_Messages.ClaimSecret _ _ _), _) -> False;
+    (Sec_Messages.Sig_C (Sec_Messages.StartProt _ _ _ _), _) -> False;
+    (Sec_Messages.Sig_C (Sec_Messages.EndProt _ _ _ _), Sec_Messages.Env_C _) ->
+      False;
+    (Sec_Messages.Sig_C (Sec_Messages.EndProt _ _ _ _), Sec_Messages.Send_C _)
+      -> False;
+    (Sec_Messages.Sig_C (Sec_Messages.EndProt _ _ _ _), Sec_Messages.Cjam_C _)
+      -> False;
+    (Sec_Messages.Sig_C (Sec_Messages.EndProt _ _ _ _), Sec_Messages.Cdejam_C _)
+      -> False;
+    (Sec_Messages.Sig_C (Sec_Messages.EndProt _ _ _ _), Sec_Messages.Recv_C _)
+      -> False;
+    (Sec_Messages.Sig_C (Sec_Messages.EndProt _ _ _ _), Sec_Messages.Leak_C _)
+      -> False;
+    (Sec_Messages.Sig_C (Sec_Messages.EndProt _ _ _ _),
+      Sec_Messages.Sig_C (Sec_Messages.ClaimSecret _ _ _))
+      -> False;
+    (Sec_Messages.Sig_C (Sec_Messages.EndProt s d ns nd),
+      Sec_Messages.Sig_C (Sec_Messages.StartProt sa da nsa nda))
+      -> Sec_Messages.equal_dagent sa d &&
+           Sec_Messages.equal_dagent da s &&
+             FSNat.equal_fsnat nsa ns && FSNat.equal_fsnat nda nd;
+    (Sec_Messages.Sig_C (Sec_Messages.EndProt _ _ _ _),
+      Sec_Messages.Sig_C (Sec_Messages.EndProt _ _ _ _))
+      -> False;
+    (Sec_Messages.Sig_C (Sec_Messages.EndProt _ _ _ _),
+      Sec_Messages.Terminate_C _)
+      -> False;
+    (Sec_Messages.Terminate_C _, _) -> False;
+  });
+
 check_leak_msg ::
   forall a b c d e f g h.
     (Type_Length.Len a, Typerep.Typerep a, Type_Length.Len b, Typerep.Typerep b,
@@ -293,16 +371,17 @@ check_terminate ::
                                   Set.Set [Sec_Messages.Chan a b c d e f g];
 check_terminate n mx p = checks n mx p (any is_terminate);
 
-check_corr_violation ::
+check_auth_violation ::
   forall a b.
     (Eq a) => Arith.Nat ->
                 Arith.Nat ->
                   Interaction_Trees.Itree a b ->
-                    (a -> Bool) -> (a -> Bool) -> Set.Set [a];
-check_corr_violation n mx p mon re =
+                    (a -> a -> Bool) -> (a -> Bool) -> Set.Set [a];
+check_auth_violation n mx p rel re =
   checks n mx p
     (\ tr ->
-      not (null tr) && re (List.last tr) && not (any mon (List.butlast tr)));
+      not (null tr) &&
+        re (List.last tr) && not (any (rel (List.last tr)) (List.butlast tr)));
 
 check_authenticity ::
   forall a b c d e f g h.
@@ -315,6 +394,18 @@ check_authenticity ::
                                 Interaction_Trees.Itree
                                   (Sec_Messages.Chan a b c d e f g) h ->
                                   Set.Set [Sec_Messages.Chan a b c d e f g];
-check_authenticity n mx p = check_corr_violation n mx p is_start is_end;
+check_authenticity n mx p =
+  check_auth_violation n mx p matches_start is_end_honest;
+
+check_corr_violation ::
+  forall a b.
+    (Eq a) => Arith.Nat ->
+                Arith.Nat ->
+                  Interaction_Trees.Itree a b ->
+                    (a -> Bool) -> (a -> Bool) -> Set.Set [a];
+check_corr_violation n mx p mon re =
+  checks n mx p
+    (\ tr ->
+      not (null tr) && re (List.last tr) && not (any mon (List.butlast tr)));
 
 }
