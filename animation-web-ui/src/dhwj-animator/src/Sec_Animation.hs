@@ -3,9 +3,10 @@
 module
   Sec_Animation(Skind(..), explore, checks, is_end, is_sig, is_leak, reaches,
                  feasible, is_start, check_sig, is_honest, stop_kind,
-                 check_corr, check_leak, follow_fuel, state_kind, is_terminate,
-                 is_end_honest, matches_start, check_leak_msg, check_terminate,
-                 check_auth_violation, check_authenticity, check_corr_violation)
+                 budget_hit, check_corr, check_leak, follow_fuel, state_kind,
+                 is_terminate, is_end_honest, matches_start, check_leak_msg,
+                 check_terminate, check_auth_violation, check_authenticity,
+                 check_corr_violation)
   where {
 
 import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
@@ -186,6 +187,22 @@ stop_kind t p =
       (if Set.is_empty (Interaction_Trees.pdom f) then SDeadlocked
         else SContinues);
   });
+
+budget_hit ::
+  forall a b.
+    (Eq a) => Arith.Nat ->
+                Arith.Nat -> Arith.Nat -> Interaction_Trees.Itree a b -> Bool;
+budget_hit n mx t (Interaction_Trees.Vis f) =
+  (if Arith.equal_nat n Arith.zero_nat then False
+    else Set.bex (Interaction_Trees.pdom f)
+           (\ e ->
+             budget_hit (Arith.minus_nat n Arith.one_nat) mx mx
+               (Interaction_Trees.pfun_app f e)));
+budget_hit n mx t (Interaction_Trees.Sil q) =
+  (if Arith.equal_nat n Arith.zero_nat then False
+    else (if Arith.equal_nat t Arith.zero_nat then True
+           else budget_hit n mx (Arith.minus_nat t Arith.one_nat) q));
+budget_hit n mx t (Interaction_Trees.Ret x) = False;
 
 check_corr ::
   forall a b.

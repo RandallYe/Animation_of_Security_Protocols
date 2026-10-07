@@ -1,7 +1,7 @@
 {-# LANGUAGE EmptyDataDecls, RankNTypes, ScopedTypeVariables #-}
 
 module
-  Set(Set(..), image, filtera, insert, member, remove, is_empty, the_elem,
+  Set(Set(..), bex, image, filtera, insert, member, remove, is_empty, the_elem,
        bot_set, inf_set, sup_set, less_eq_set, equal_set, uminus_set)
   where {
 
@@ -17,6 +17,9 @@ import qualified Rational;
 import qualified List;
 
 data Set a = Set [a] | Coset [a] deriving (Prelude.Read, Prelude.Show);
+
+bex :: forall a. Set a -> (a -> Bool) -> Bool;
+bex (Set xs) p = any p xs;
 
 image :: forall a b. (a -> b) -> Set a -> Set b;
 image f (Set xs) = Set (map f xs);
