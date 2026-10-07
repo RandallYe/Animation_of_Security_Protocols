@@ -735,6 +735,42 @@ declare explore.simps(3) [code del]
 declare explore.simps(4) [code del]
 declare explore.simps(5) [code del]
 
+text \<open> Was the bounded exploration cut short by the internal-step budget?
+  @{text explore} stops without following a state whose internal budget is
+  exhausted; this predicate reports that, so that a bounded verdict can be
+  flagged as possibly incomplete and the user asked to raise @{text mx}.
+  It mirrors the @{text explore} recursion clause by clause. \<close>
+
+fun budget_hit :: "nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> ('e, 's) itree \<Rightarrow> bool" where
+  "budget_hit 0 mx t P = False"
+| "budget_hit (Suc n) mx t (Ret x) = False"
+| "budget_hit (Suc n) mx 0 (Sil Q) = True"
+| "budget_hit (Suc n) mx (Suc t) (Sil Q) = budget_hit (Suc n) mx t Q"
+| "budget_hit (Suc n) mx t (Vis F) = (\<exists>e\<in>pdom F. budget_hit n mx mx (F e))"
+
+text \<open> Executable arithmetic code equations, mirroring those of
+  @{const explore}: the pattern equations are removed from the code set because
+  the code generator translates @{typ nat} to an opaque integer. \<close>
+
+lemma budget_hit_code_Ret [code]: "budget_hit n mx t (Ret x) = False"
+  by (cases n; simp)
+
+lemma budget_hit_code_Sil [code]:
+  "budget_hit n mx t (Sil Q) =
+     (if n = 0 then False else if t = 0 then True else budget_hit n mx (t - 1) Q)"
+  by (cases n; cases t; simp)
+
+lemma budget_hit_code_Vis [code]:
+  "budget_hit n mx t (Vis F) =
+     (if n = 0 then False else (\<exists>e\<in>pdom F. budget_hit (n - 1) mx mx (F e)))"
+  by (cases n; simp)
+
+declare budget_hit.simps(1) [code del]
+declare budget_hit.simps(2) [code del]
+declare budget_hit.simps(3) [code del]
+declare budget_hit.simps(4) [code del]
+declare budget_hit.simps(5) [code del]
+
 subsection \<open> Bounded checking of trace properties \<close>
 
 text \<open>
@@ -988,7 +1024,7 @@ import Prelude
 import qualified Prelude
 import Arith (nat_of_integer)
 import qualified Set
-import Sec_Animation (explore, check_leak, check_terminate, check_authenticity)
+import Sec_Animation (explore, budget_hit, check_leak, check_terminate, check_authenticity)
 import System.Environment (getArgs)
 import System.IO (hSetBuffering, stdin, stdout, BufferMode(NoBuffering, LineBuffering))
 import System.IO.Error (tryIOError)
@@ -1109,6 +1145,12 @@ runSound p = do
     _ -> askBounds
   let nn = nat_of_integer n
       mm = nat_of_integer mx
+  if budget_hit nn mm mm p
+    then Prelude.putStrLn ("WARNING: the internal-step budget (mx = " ++ Prelude.show mx
+           ++ ") was exhausted and the search was cut short, so this result is not exhaustive"
+           ++ " within n = " ++ Prelude.show n
+           ++ ".  Re-run with a larger mx for a complete answer.")
+    else Prelude.return ()
   Prelude.putStrLn "Which check? (5 steps through the animation manually)"
   Prelude.putStrLn "  1) enumerate all traces within the bounds"
   Prelude.putStrLn "  2) secrecy: traces containing a Leak event"
@@ -1247,9 +1289,9 @@ fun sound_simulate model thy =
   let val ctx = Named_Target.theory_init thy
       val thy0 = Local_Theory.exit_global ctx
       val cs = map (Code.read_const thy0)
-        [model, "explore", "feasible", "reaches", "checks", "check_leak", "check_leak_msg",
-         "check_sig", "check_terminate", "check_corr", "check_corr_violation",
-         "check_authenticity"]
+        [model, "explore", "budget_hit", "feasible", "reaches", "checks", "check_leak",
+         "check_leak_msg", "check_sig", "check_terminate", "check_corr",
+         "check_corr_violation", "check_authenticity"]
       val ctx' =
         (Code_Target.export_code true cs [((("Haskell", ""), SOME ({physical = false}, (Path.explode "simulate", Position.none))), (Token.explode (Thy_Header.get_keywords' @{context}) Position.none "string_classes"))] ctx)
         |> prep_sound model (Context.theory_name {long = false} thy)

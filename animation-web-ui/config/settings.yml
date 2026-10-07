@@ -46,20 +46,18 @@ plantuml-url: http://localhost:8080/plantuml/svg
 # These two are the fallback defaults; each protocol normally overrides them
 # under event-tree-bounds below.
 #
-# The cost is driven by how many traces the model has, and the models differ by
-# orders of magnitude.  Measured single explorations (GHC 9.2.8, -O0):
-#   nspk3  20/100 -> 14 214 traces,  ~95 s   (saturates: depth 15+ adds nothing)
-#   nslpk3 20/100 -> 14 162 traces,  ~98 s   (saturates)
-#   nswj3  20/100 -> does not finish in 25 minutes
-#   nswj3  12/5   ->  6 919 traces, ~157 s
-#   nswj3  10/5   ->  2 329 traces,  ~18 s
-#   dhwj   20/100 -> 16 694 traces, ~292 s
-#   dhwj   12/5   -> 10 966 traces,  ~75 s
+# All four protocols are explored with the same bounds, 15 visible events and an
+# internal-step budget of 100 between consecutive visible events.  The cost is
+# driven by how many traces the model has, and the models differ by orders of
+# magnitude; measured single explorations (GHC 9.2.8, -O0) at these depths are
+# recorded in REGEN_ANIMATORS.md.  If a smaller mx cuts the exploration short,
+# the interface warns and asks for a larger value instead of silently reporting
+# a partial result.
 #
 # NOTE: for all four models the internal-step bound made no difference at these
 # depths (mx = 3 and mx = 100 give identical trace sets); it is the depth that
 # costs.  It still matters for completeness -- mx = 0 collapses the exploration.
-event-tree-depth: 20
+event-tree-depth: 15
 event-tree-internal-depth: 100
 
 # Build the event trees of all protocols in the background at startup, so that
@@ -70,7 +68,7 @@ event-tree-preload: true
 
 # Per-protocol overrides: protocol -> [depth, internal-depth]
 event-tree-bounds:
-  nspk3: [20, 100]
-  nslpk3: [20, 100]
-  nswj3: [12, 5]
-  dhwj: [12, 5]
+  nspk3: [15, 100]
+  nslpk3: [15, 100]
+  nswj3: [15, 100]
+  dhwj: [15, 100]
