@@ -14,7 +14,7 @@ definition msg1a :: "dagent => dmsg" where
 "msg1a A = MWat (\<lbrace>MNon (NonceMap(A)), MAg A\<rbrace>\<^sub>m) (mkbma A)"
 
 text \<open> The message 2 that an agent can send \<close>
-definition "msg2a A = [MWat \<lbrace>MNon (NonceMap(A)), MNon (NonceMap(B))\<rbrace>\<^sub>m (mkbma B). B \<leftarrow> AllOtherAgents' A]"
+definition "msg2a A = [MWat \<lbrace>MNon (NonceMap(A)), MNon (NonceMap(B))\<rbrace>\<^sub>m (mkbma B). B \<leftarrow> AllOtherAgents A]"
 text \<open> The message 3 that an agent can send with its counterpart's nonce \<close>
 definition msg3a :: "dagent \<Rightarrow> dmsg \<Rightarrow> dmsg" where 
 "msg3a A nb = MWat nb (mkbma A)"
