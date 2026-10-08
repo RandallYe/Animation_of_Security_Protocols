@@ -771,6 +771,37 @@ declare budget_hit.simps(3) [code del]
 declare budget_hit.simps(4) [code del]
 declare budget_hit.simps(5) [code del]
 
+text \<open> If the exploration does not run out of internal steps then it loses
+  nothing: every trace of the model within the bound is explored.  The budget of
+  the witness produced by @{text trace_to_btr} is irrelevant here, because
+  @{text budget_hit} rules out exhaustion on \emph{every} branch. \<close>
+
+lemma btr_budget_mono:
+  "btr n mx' t' P tr \<Longrightarrow> \<not> budget_hit n mx t P \<Longrightarrow> btr n mx t P tr"
+proof (induct arbitrary: mx t rule: btr.induct)
+  case (btr_stop n mx' t' P)
+  then show ?case by (auto intro: btr.intros)
+next
+  case (btr_Sil n mx' t' P tr)
+  then show ?case by (cases t) (auto elim: btr.cases intro: btr.intros)
+next
+  case (btr_Vis e F n mx' t' tr)
+  then show ?case by (auto intro: btr.intros)
+qed
+
+lemma explore_complete_no_hit:
+  assumes "P \<midarrow>tr\<leadsto> P'"
+      and "length tr \<le> n"
+      and "\<not> budget_hit n mx t P"
+    shows "tr \<in> explore n mx t P"
+  using assms
+proof -
+  from assms(1) obtain mx' where bt: "btr (length tr) mx' mx' P tr" by (meson trace_to_btr)
+  with assms(2) have "btr n mx' mx' P tr" by (auto intro: btr_mono_n)
+  with assms(3) have "btr n mx t P tr" by (metis btr_budget_mono)
+  then show ?thesis by (simp add: explore_iff_btr)
+qed
+
 subsection \<open> Bounded checking of trace properties \<close>
 
 text \<open>
