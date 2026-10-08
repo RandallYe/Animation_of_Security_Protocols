@@ -7,7 +7,7 @@
 # contain Haskell generated from User_Guided_Verification_Security/.  They are
 # NOT produced by `stack build`, so they have to be refreshed whenever the
 # theories change.  This script automates the procedure documented in
-# animation-web-ui/REGEN_ANIMATORS.md; it follows the same shape as
+# animation-web-ui/regeneration/REGEN_ANIMATORS.md; it follows the same shape as
 # User_Guided_Verification_Security/Check_Automation/run_check.sh.
 #
 # Stages (any may be run separately):
@@ -42,13 +42,15 @@ set -euo pipefail
 # Configuration
 # --------------------------------------------------------------------------
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-ARTEFACT=${ARTEFACT:-"$(cd "$HERE/.." && pwd)"}
+# this script lives in animation-web-ui/regeneration/, so the checkout root is
+# two levels up and the animator packages are in the sibling animation-web-ui/src
+ARTEFACT=${ARTEFACT:-"$(cd "$HERE/../.." && pwd)"}
 ISABELLE=${ISABELLE:-"$HOME/Tools/Isabelle2025-CyPhyAssure/bin/isabelle"}
 WORK=${WORK:-"$HERE/regen-work"}
 USER_HOME_DIR=${USER_HOME_DIR:-"$WORK/.isabelle-home"}
 
 THEORIES="$ARTEFACT/User_Guided_Verification_Security"
-DEST_ROOT="$HERE/src"
+DEST_ROOT="$HERE/../src"
 REGEN="$WORK/regen"
 
 FAMILIES=(nspk3 nswj3 dhwj)
@@ -308,7 +310,7 @@ if [ ${#SELECTED[@]} -gt 0 ]; then
 fi
 
 [ -d "$ARTEFACT/User_Guided_Verification_Security" ] || die "theories not found under $ARTEFACT"
-[ -d "$DEST_ROOT" ] || die "animation-web-ui/src not found under $HERE"
+[ -d "$DEST_ROOT" ] || die "animation-web-ui/src not found at $DEST_ROOT"
 [ -x "$ISABELLE" ] || warn "Isabelle is not executable at $ISABELLE (set ISABELLE=...)"
 
 if [ "$CLEAN" = 1 ]; then log "cleaning $WORK"; rm -rf "$WORK"; fi
@@ -347,7 +349,7 @@ case "$MODE" in
     fi
     log "changed files under animation-web-ui/src:"
     git -C "$ARTEFACT" status --short -- animation-web-ui/src | sed 's/^/  /' >&2
-    log "now run: (cd $HERE && stack --system-ghc build)"
+    log "now run: (cd $ARTEFACT/animation-web-ui && stack --system-ghc build)"
     ;;
   *) die "unknown mode: $MODE (try --help)" ;;
 esac

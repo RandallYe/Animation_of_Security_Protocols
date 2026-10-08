@@ -26,7 +26,7 @@ Isabelle whenever the theories change.  This file records the procedure.
 
 It is modelled on `User_Guided_Verification_Security/Check_Automation/run_check.sh`:
 the scratch session and a cached Isabelle user home live in
-`animation-web-ui/regen-work/` (git-ignored), which is seeded from `~/.isabelle`
+`animation-web-ui/regeneration/regen-work/` (git-ignored), which is seeded from `~/.isabelle`
 on the first run so the expensive interaction-tree heaps are reused.  The
 sections below describe what it does and how to do it by hand.
 

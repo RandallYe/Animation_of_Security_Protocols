@@ -184,7 +184,7 @@ Outputs, written next to the script unless overridden:
 
 Requirements: the Isabelle/HOL 2025 CyPhyAssure session chain, `stack` with GHC 9.8 (LTS 23.0), and a checkout of this repository. The locations can be overridden through the environment: `ARTEFACT` (checkout root), `ISABELLE` (Isabelle executable), `WORK` (scratch directory) and `CSV` / `MD` (the result files).
 
-This is the batch counterpart of the interactive `animate_sec_sound`; the animator packages used by the web interface are refreshed separately with [`animation-web-ui/regen-animators.sh`](../animation-web-ui/regen-animators.sh).
+This is the batch counterpart of the interactive `animate_sec_sound`; the animator packages used by the web interface are refreshed separately with [`regen-animators.sh`](../animation-web-ui/regeneration/regen-animators.sh).
 
 # Illustrations
 
