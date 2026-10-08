@@ -575,11 +575,6 @@ exhaustiveSearchEve1 reach chMonitor msgMonitor chCheck msgCheck currentTrace mo
                   return xsRes  -- this is not a counterexample
                 else
                   return ([currentTrace ++ [eid]] ++ xsRes) -- this is a counterexample
-              Injective_Correspondence -> do
-                if monitoredBefore == 1 then 
-                  return xsRes  -- this is not a counterexample
-                else
-                  return ([currentTrace ++ [eid]] ++ xsRes) -- this is a counterexample
               Secrecy -> -- If checking for secrecy, this is the counterexample 
                 return ([currentTrace ++ [eid]] ++ xsRes)
             False -> do
@@ -608,11 +603,6 @@ exhaustiveSearchEve2 reach chMonitor msgMonitor chCheck msgCheck currentTrace mo
             True -> case reach of 
               Correspondence -> do -- If checking for reachability, check if the event for monitoring is reachable
                 if monitoredBefore > 0 then 
-                  return xsRes  -- this is not a counterexample
-                else
-                  return ([currentTrace ++ [eid]] ++ xsRes) -- this is a counterexample
-              Injective_Correspondence -> do
-                if monitoredBefore == 1 then 
                   return xsRes  -- this is not a counterexample
                 else
                   return ([currentTrace ++ [eid]] ++ xsRes) -- this is a counterexample
@@ -647,11 +637,6 @@ exhaustiveSearchEve3 reach chMonitor msgMonitor chCheck msgCheck currentTrace mo
                   return xsRes  -- this is not a counterexample
                 else
                   return ([currentTrace ++ [eid]] ++ xsRes) -- this is a counterexample
-              Injective_Correspondence -> do
-                if monitoredBefore == 1 then 
-                  return xsRes  -- this is not a counterexample
-                else
-                  return ([currentTrace ++ [eid]] ++ xsRes) -- this is a counterexample
               Secrecy -> -- If checking for secrecy, this is the counterexample 
                 return ([currentTrace ++ [eid]] ++ xsRes)
             False -> do
@@ -680,11 +665,6 @@ exhaustiveSearchEve4 reach chMonitor msgMonitor chCheck msgCheck currentTrace mo
             True -> case reach of 
               Correspondence -> do -- If checking for reachability, check if the event for monitoring is reachable
                 if monitoredBefore > 0 then 
-                  return xsRes  -- this is not a counterexample
-                else
-                  return ([currentTrace ++ [eid]] ++ xsRes) -- this is a counterexample
-              Injective_Correspondence -> do
-                if monitoredBefore == 1 then 
                   return xsRes  -- this is not a counterexample
                 else
                   return ([currentTrace ++ [eid]] ++ xsRes) -- this is a counterexample

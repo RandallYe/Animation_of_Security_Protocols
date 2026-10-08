@@ -373,11 +373,6 @@ exhaustiveSearch reach chMonitor msgMonitor chCheck msgCheck currentTrace monito
                   return xsRes  -- this is not a counterexample
                 else
                   return ([currentTrace ++ [eid]] ++ xsRes) -- this is a counterexample
-              Injective_Correspondence -> do
-                if monitoredBefore == 1 then 
-                  return xsRes  -- this is not a counterexample
-                else
-                  return ([currentTrace ++ [eid]] ++ xsRes) -- this is a counterexample
               Secrecy -> -- If checking for secrecy, this is the counterexample 
                 return ([currentTrace ++ [eid]] ++ xsRes)
             False -> do
