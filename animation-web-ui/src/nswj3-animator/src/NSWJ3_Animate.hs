@@ -15,7 +15,7 @@ module NSWJ3_Animate (explore_tree_NSWJ3,
   EventTree(ETNode), TEventPos(TEP), TEvent(Root, Deadlocked, Terminated, Divergent, EChan),
   NSWJ3_TEvent(..), NSWJ3_EventTree(..), eventList, eventTreeList, formatEvents, formatTEvent, formatTEvents, 
   getChannelList, getChannelList4Property,
-  explore, checks, nat_of_integer, secSetToList
+  explore, checks, budgetExhausted, nat_of_integer, secSetToList
   ) where
 import Interaction_Trees ( Itree(..), Pfun(Pfun_of_alist, Pfun_of_map, Pfun_entries), pfun_app );
 import Prelude;
@@ -28,7 +28,7 @@ import Sec_Messages ( Chan(..), Dmsg(..), Dsig(..), Dagent(Agent), Dkey(Kp, Ks))
 import qualified Numeral_Type;
 import qualified Type_Length;
 -- import qualified Data.List (dropWhile, dropWhileEnd, intersect, head, tail, elemIndex, uncons);
-import Sec_Animation (explore, checks, state_kind, Skind(..));
+import Sec_Animation (explore, checks, budget_hit, state_kind, Skind(..));
 import qualified Data.List as List (sortBy, groupBy);
 -- import Control.Monad (forM_, when);
 -- import System.Exit (exitWith, ExitCode( ExitSuccess ));
@@ -112,3 +112,12 @@ explore_tree_NSWJ3 ::  Int -> Int -> Deve -> EventTree
   (Numeral_Type.Bit0 Numeral_Type.Num1)
   ;
 explore_tree_NSWJ3 steps tau_steps eve = soundTree (nSWJ3_active eve) tau_steps (soundTraces (nSWJ3_active eve) steps tau_steps)
+
+-- | Was the bounded exploration of this eavesdropper scenario cut short because
+--   the internal-step budget ran out?  If so, a bounded verdict is not
+--   exhaustive within the bounds and the internal-step bound should be raised.
+budgetExhausted :: Int -> Int -> Deve -> Bool
+budgetExhausted steps tau_steps eve =
+  budget_hit (nat_of_integer (fromIntegral steps))
+             (nat_of_integer (fromIntegral tau_steps))
+             (nat_of_integer (fromIntegral tau_steps)) (nSWJ3_active eve)

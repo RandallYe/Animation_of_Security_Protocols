@@ -449,9 +449,12 @@ withTreeBuildLock protocol action = do
 
 -- | The verdict of a bounded check.  The stored event tree only contains traces
 --   within the exploration bounds, so a negative result is a statement about
---   those bounds and nothing more; the message says so explicitly.
-boundedVerdict :: Int -> Int -> Int -> Text
-boundedVerdict depth internalDepth nCounterexamples =
+--   those bounds and nothing more; the message says so explicitly.  When the
+--   exploration also ran out of internal steps (@budget_hit@ from the
+--   Isabelle-proved search), the result is not even exhaustive within those
+--   bounds, and the message says that too.
+boundedVerdict :: Int -> Int -> Int -> Bool -> Text
+boundedVerdict depth internalDepth nCounterexamples budgetExhausted =
   (if nCounterexamples == 0
      then "No safety violation found within "
      else T.pack (show nCounterexamples) <> " counterexample(s) found within ")
@@ -460,6 +463,29 @@ boundedVerdict depth internalDepth nCounterexamples =
   <> (if nCounterexamples == 0
         then " -- a bounded result: a violation may still exist beyond these bounds."
         else " -- a bounded result.")
+  <> (if budgetExhausted
+        then "  WARNING: the internal-step budget (mx = " <> T.pack (show internalDepth)
+             <> ") was exhausted and the search was cut short, so this result is not"
+             <> " exhaustive within these bounds -- re-run with a larger internal-step"
+             <> " bound (event-tree-internal-depth) for a complete answer."
+        else "")
+
+-- | Whether the bounded exploration of a protocol/eavesdropper tag ran out of
+--   internal steps.  @budget_hit@ is a pure traversal of the model: cheaper
+--   than the full exploration, but not free (a few seconds for the largest
+--   model).  It is triggered by an explicit user action, so the answer is
+--   memoised for the lifetime of the process: the first check pays the cost and
+--   the rest are instant.
+ensureBudgetHit :: Text -> Handler Bool -> Handler Bool
+ensureBudgetHit key compute = do
+    app <- getYesod
+    cached <- M.lookup key <$> readMVar (appBudgetHit app)
+    case cached of
+      Just b  -> return b
+      Nothing -> do
+        b <- compute
+        modifyMVar_ (appBudgetHit app) (return . M.insert key b)
+        return b
 
 -- | Format an event for display by using the following pattern:
 --   ch[src-->desc].msg

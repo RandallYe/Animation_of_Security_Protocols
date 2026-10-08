@@ -18,10 +18,11 @@ module NSPK3_Animate (explore_tree_NSPK3,
   -- the sound (Isabelle-proved) bounded exploration and its checks
   explore, checks, feasible, reaches, is_leak, is_sig, is_start, is_end, is_terminate,
   check_leak, check_leak_msg, check_sig, check_terminate, check_corr, check_corr_violation, check_authenticity,
+  budgetExhaustedNSPK3, budgetExhaustedNSLPK3,
   nat_of_integer, secSetToList
   ) where
 import Interaction_Trees( Itree(..));
-import Sec_Animation (explore, checks, state_kind, Skind(..), feasible, reaches, is_leak, is_sig, is_start, is_end, is_terminate,
+import Sec_Animation (explore, checks, budget_hit, state_kind, Skind(..), feasible, reaches, is_leak, is_sig, is_start, is_end, is_terminate,
   check_leak, check_leak_msg, check_sig, check_terminate, check_corr, check_corr_violation, check_authenticity);
 import Prelude;
 import Text.Read (get);
@@ -136,3 +137,19 @@ explore_tree_NSLPK3 :: Int -> Int -> EventTree
   (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
   Numeral_Type.Num1 Numeral_Type.Num1 (Numeral_Type.Bit0 Numeral_Type.Num1)
 explore_tree_NSLPK3 steps tau_steps = soundTree nSLPK3 tau_steps (soundTraces nSLPK3 steps tau_steps)
+
+-- | Was the bounded exploration of NSPK3 cut short because the internal-step
+--   budget ran out?  If so, a bounded verdict is not exhaustive within the
+--   bounds and the user should raise the internal-step bound.
+budgetExhaustedNSPK3 :: Int -> Int -> Bool
+budgetExhaustedNSPK3 steps tau_steps =
+  budget_hit (nat_of_integer (fromIntegral steps))
+             (nat_of_integer (fromIntegral tau_steps))
+             (nat_of_integer (fromIntegral tau_steps)) nSPK3
+
+-- | The same for NSLPK3.
+budgetExhaustedNSLPK3 :: Int -> Int -> Bool
+budgetExhaustedNSLPK3 steps tau_steps =
+  budget_hit (nat_of_integer (fromIntegral steps))
+             (nat_of_integer (fromIntegral tau_steps))
+             (nat_of_integer (fromIntegral tau_steps)) nSLPK3

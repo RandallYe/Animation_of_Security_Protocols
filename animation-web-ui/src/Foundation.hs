@@ -51,6 +51,12 @@ data App = App
     --   the startup preload), and that exploration can take minutes; without
     --   the lock two concurrent builders would do the work twice and the second
     --   would hit the unique index on the event id.
+    , appBudgetHit :: MVar (Map Text Bool)
+    -- ^ Memoised answer to "did the bounded exploration of this protocol run
+    --   out of internal steps?", keyed by protocol/eavesdropper tag.  The check
+    --   is a pure traversal of the model (up to a few seconds for the largest
+    --   one) and is triggered by an explicit user action, so it is computed
+    --   once per process and then reused.
     }
 
 data MenuItem = MenuItem

@@ -23,7 +23,7 @@ import qualified Data.Text as T (unlines, pack, unpack, intercalate)
 import Handler.Common
 import Handler.Session ( sessionAddForm, getSessionId)
 -- import NSLPK3 ()
-import NSPK3_Animate (explore_tree_NSLPK3, 
+import NSPK3_Animate (explore_tree_NSLPK3, budgetExhaustedNSLPK3,
   EventTree(ETNode), TEventPos(TEP), TEvent(Root, Deadlocked, Terminated, Divergent, EChan),
   NSLPK3_TEvent(..), NSLPK3_EventTree(..), formatEvents, formatTEvent, formatTEvents, getChannelList, getChannelList4Property
   )
@@ -140,6 +140,8 @@ autoFormHandler :: AutoInputForm -> Handler String
 autoFormHandler autoFormRes = do 
       clearSessionForCounterexamples
       (depth, internal_depth) <- getEventTreeDepthFor "nslpk3"
+      budgetExhausted <- ensureBudgetHit "nslpk3" $
+        return (budgetExhaustedNSLPK3 depth internal_depth)
       res <- autoCheck reach ch1 msg1 ch2 msg2
       -- setMessage $ toHtml $ "Automatic reachability check counterexamples: " ++ show (length res) ++ "."
       liftIO $ print ("Automatic reachability check counterexamples: " ++ show (length res) ++ ".")
@@ -154,7 +156,7 @@ autoFormHandler autoFormRes = do
         , "/ "
         , show msg1
         , "]. "
-        , T.unpack (boundedVerdict depth internal_depth (length res)) ]
+        , T.unpack (boundedVerdict depth internal_depth (length res) budgetExhausted) ]
     where 
       reach = autoReach autoFormRes 
       ch1 = autoMonitorChannel autoFormRes 

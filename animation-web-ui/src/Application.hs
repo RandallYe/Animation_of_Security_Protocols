@@ -76,6 +76,9 @@ makeFoundation appSettings = do
         let protocols = ["nspk3", "nslpk3", "nswj3", "dhwj"] :: [Text]
         locks <- mapM (const (newMVar ())) protocols
         return (Map.fromList (zip protocols locks))
+    -- Memoised budget-exhaustion answers for the bounded verdict; see
+    -- 'Handler.Common.ensureBudgetHit'.
+    appBudgetHit <- newMVar Map.empty
     -- Some basic initializations: HTTP connection manager, logger, and static
     -- subsite.
     appHttpManager <- getGlobalManager

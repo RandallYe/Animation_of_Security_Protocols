@@ -36,7 +36,7 @@ import Handler.Common
 import Handler.Session ( sessionAddForm, getSessionId)
 import NSWJ3_config (Deve(..))
 -- import NSWJ3_wbplsec (nSWJ3_active)
-import qualified NSWJ3_Animate as NSA (explore_tree_NSWJ3, 
+import qualified NSWJ3_Animate as NSA (explore_tree_NSWJ3, budgetExhausted,
   EventTree(ETNode), TEventPos(TEP), TEvent(Root, Deadlocked, Terminated, Divergent, EChan),
   NSWJ3_TEvent(..), NSWJ3_EventTree(..), formatEvents, formatTEvent, formatTEvents, getChannelList, getChannelList4Property
   )
@@ -173,6 +173,11 @@ autoFormHandler :: AutoInputForm -> Handler String
 autoFormHandler autoFormRes = do 
       clearSessionForCounterexamples
       (depth, internal_depth) <- getEventTreeDepthFor "nswj3"
+      maybeEve <- currentEveScenario
+      budgetExhausted <- case maybeEve of
+        Just e  -> ensureBudgetHit ("nswj3:" <> eveTag e) $
+                     return (NSA.budgetExhausted depth internal_depth e)
+        Nothing -> return False
       res <- autoCheck reach ch1 msg1 ch2 msg2
       -- setMessage $ toHtml $ "Automatic reachability check counterexamples: " ++ show (length res) ++ "."
       liftIO $ print ("Automatic reachability check counterexamples: " ++ show (length res) ++ ".")
@@ -187,7 +192,7 @@ autoFormHandler autoFormRes = do
         , "/ "
         , show msg1
         , "]. "
-        , T.unpack (boundedVerdict depth internal_depth (length res)) ]
+        , T.unpack (boundedVerdict depth internal_depth (length res) budgetExhausted) ]
     where 
       reach = autoReach autoFormRes 
       ch1 = autoMonitorChannel autoFormRes 
@@ -883,6 +888,14 @@ plantUMLTextNSWJ3_no_attack = return $ T.unlines $ [
 discardMid :: [(Text, (Text, Text, Text, Text, Text, Text))] -> [(Text, (Text, Text, Text, Text, Text))]
 discardMid [] = [] 
 discardMid ((no, (id, ch, src, mid, dst, msg)):xs) = (no, (id, ch, src, dst, msg)):discardMid xs
+
+-- | The stored protocol/eavesdropper tag of an eavesdropper scenario; the same
+--   string keys the event-tree table and the completion marker.
+eveTag :: Deve -> Text
+eveTag Eve1 = "NSWJ3Eve1"
+eveTag Eve2 = "NSWJ3Eve2"
+eveTag Eve3 = "NSWJ3Eve3"
+eveTag Eve4 = "NSWJ3Eve4"
 
 currentEveScenario :: Handler (Maybe Deve)
 currentEveScenario = do
