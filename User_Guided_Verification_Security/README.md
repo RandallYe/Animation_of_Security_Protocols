@@ -8,6 +8,7 @@ This folder contains the Isabelle/HOL theories from which sound animators for se
     - [Web interface](#web-interface)
   - [Third stage (proven soundness)](#third-stage-proven-soundness)
 - [How to load theories in Isabelle/HOL and generate Haskell code?](#how-to-load-theories-in-isabellehol-and-generate-haskell-code)
+- [Checking all protocols automatically](#checking-all-protocols-automatically)
 - [Illustrations](#illustrations)
   - [Bounded exploration](#bounded-exploration)
   - [Manual exploration](#manual-exploration)
@@ -19,6 +20,8 @@ This folder contains the Isabelle/HOL theories from which sound animators for se
 The folder structure is shown below.
 
 ```
+├── Check_Automation
+│   └── run_check.sh
 ├── CSP_operators.thy
 ├── Diffie_Hellman
 │   ├── DH_v1
@@ -64,7 +67,7 @@ The folder structure is shown below.
 └── Sec_Messages.thy
 ```
 
-In general, this folder contains Isabelle/HOL theories to be used to automatically generate Haskell code for sound animation to verify security protocols. The web application lives in the sibling folder [`animation-web-ui`](../animation-web-ui/README.md).
+In general, this folder contains Isabelle/HOL theories to be used to automatically generate Haskell code for sound animation to verify security protocols. The web application lives in the sibling folder [`animation-web-ui`](../animation-web-ui/README.md). The [`Check_Automation`](./Check_Automation) folder holds the batch harness that runs the proved checks over every protocol and eavesdropper location; see [Checking all protocols automatically](#checking-all-protocols-automatically).
 
 Now, the folder contains several variants of the Needham-Schroeder Public Key Protocol (NSPK) and the Diffie–Hellman Key Exchange Protocol (DH) using the framework we are developing. These examples were developed in different stages.
 
@@ -154,6 +157,34 @@ Start animation
 - This means the code generation succeeded. Now you can click "Start animation" to launch the animator and start the animation
 
 The third stage adds the sound variant of the command, `animate_sec_sound` (for example `animate_sec_sound NSPK3` in [NSPK3.thy](./NSPKP/NSPK3_v2/NSPK3.thy)), which runs the proved bounded exploration and its checks automatically, and can also step through the animation manually one event at a time; see [Illustrations](#illustrations).
+
+# Checking all protocols automatically
+
+[`Check_Automation/run_check.sh`](./Check_Automation/run_check.sh) runs the checks proved in [Sec_Animation.thy](./Sec_Animation.thy) over every protocol and every eavesdropper location, and records the verdict and the wall-clock time of each one. It is the batch harness behind the results table: it exports the models and the proved checks to Haskell, builds one small runner per family, and then runs each cell.
+
+```
+$ ./Check_Automation/run_check.sh            # generate + build + run (default)
+$ ./Check_Automation/run_check.sh generate   # Isabelle -> Haskell only
+$ ./Check_Automation/run_check.sh build      # stack build the generated runner
+$ ./Check_Automation/run_check.sh run        # run every cell, timing each
+$ ./Check_Automation/run_check.sh dry-run    # show the grid and the bounds, run nothing
+$ ./Check_Automation/run_check.sh --fast     # one configuration per family
+```
+
+Each cell is one *(protocol, model, property)* triple. The properties are `secrecy`, `auth-alice` and `auth-bob`; the two authenticity properties are the correspondence check described in the [third stage](#third-stage-proven-soundness), built on the proved `check_leak`, `check_auth_violation` and `matches_start`. The exploration bounds are per family and are set at the top of the script (`BOUNDS`, `15 100` by default). Note that they are **not** the bounds in [`animation-web-ui/config/settings.yml`](../animation-web-ui/config/settings.yml), which the browser uses for its stored trees, so reconcile the two before publishing any numbers. `--timeout SECONDS` bounds each cell (default `900`; `0` disables it), and `--fast` restricts the grid to one configuration per family and compiles with `-O1`.
+
+Outputs, written next to the script unless overridden:
+
+| Path | Contents |
+|---|---|
+| `Check_Automation/check-results.csv` | `protocol,model,property,verdict,seconds`, one row per cell |
+| `Check_Automation/check-results.md` | the same rendered as a Markdown table |
+| `Check_Automation/check-work/logs/` | one log per stage and per cell |
+| `Check_Automation/check-work/` | the throw-away export session (`regen/`), the runners (`build/`) and the Isabelle user home |
+
+Requirements: the Isabelle/HOL 2025 CyPhyAssure session chain, `stack` with GHC 9.8 (LTS 23.0), and a checkout of this repository. The locations can be overridden through the environment: `ARTEFACT` (checkout root), `ISABELLE` (Isabelle executable), `WORK` (scratch directory) and `CSV` / `MD` (the result files).
+
+This is the batch counterpart of the interactive `animate_sec_sound`; the animator packages used by the web interface are refreshed separately with [`animation-web-ui/regen-animators.sh`](../animation-web-ui/regen-animators.sh).
 
 # Illustrations
 

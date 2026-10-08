@@ -82,3 +82,25 @@ stack build
 Then copy the binary file animate-web-ui to a folder which you want.
 
 Then type [http://localhost:3000](http://localhost:3000) in your browser to access the web interface.
+
+## Regenerating the animator packages
+
+The three packages under `src/` (`nspk3-animator`, `nswj3-animator`, `dhwj-animator`) are *vendored*: most of their modules are generated from the Isabelle/HOL theories in [`../User_Guided_Verification_Security`](../User_Guided_Verification_Security) and are **not** produced by `stack build`. They therefore stay as they are until they are regenerated, which has to be done whenever the theories change.
+
+[`regen-animators.sh`](./regen-animators.sh) does that:
+
+```bash
+$ ./regen-animators.sh              # generate + install + verify (the default)
+$ ./regen-animators.sh generate     # Isabelle -> Haskell, one session per family
+$ ./regen-animators.sh install      # patch, copy into src/*-animator/src, refresh Simulate.hs
+$ ./regen-animators.sh verify       # typecheck each package with GHC 9.2.8
+$ ./regen-animators.sh --pkg nswj3  # restrict to one family (repeatable)
+$ ./regen-animators.sh --jobs 4     # Isabelle build jobs (default: nproc)
+$ ./regen-animators.sh --clean      # drop the scratch directory and rebuild from scratch
+```
+
+`generate` copies the protocol theories into a throw-away Isabelle session (with the interactive `animate_sec` / `animate_sec_sound` commands removed) and exports the models together with the proved bounded exploration and its checks; `install` applies the `base-4.16` `Data.Bits` patch, copies the modules into `src/*-animator/src/` and refreshes `Simulate.hs` from the `generate_file` block in `Sec_Animation.thy`; `verify` typechecks each package with the GHC the project pins (9.2.8). The hand-written `*_Animate.hs` wrappers are never overwritten — if a generated API changes shape, `verify` fails and the wrapper needs a manual edit.
+
+The scratch session and a cached Isabelle user home live in `regen-work/` (git-ignored), seeded from `~/.isabelle` on the first run so the expensive interaction-tree heaps are reused; override with `WORK=...`, `ISABELLE=...` or `USER_HOME_DIR=...`. After a successful run, rebuild the web application with `stack --system-ghc build`.
+
+The full procedure, and what to do by hand, is in [`REGEN_ANIMATORS.md`](./REGEN_ANIMATORS.md). Its batch counterpart, which checks the protocols once the animators are in place, is [`../User_Guided_Verification_Security/Check_Automation/run_check.sh`](../User_Guided_Verification_Security/Check_Automation/run_check.sh).

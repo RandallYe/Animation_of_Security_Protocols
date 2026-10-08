@@ -39,7 +39,7 @@ getRobotsR :: Handler TypedContent
 getRobotsR = return $ TypedContent typePlain
                     $ toContent $(embedFile "config/robots.txt")
 
-data CheckMode = Secrecy |Correspondence | Injective_Correspondence 
+data CheckMode = Secrecy | Correspondence
   deriving (Eq, Show)
 
 fst4 :: (a, b, c, d) -> a
@@ -323,7 +323,6 @@ autoAnimationForm channelList =
         reachFieldList = 
             [ ("Secrecy/Reachability check - should not be reached", Secrecy)
             , ("Correspondence check - event 1 occurs before event 2", Correspondence)
-            , ("Injective correspondence check - exactly one event 1 occurs before event 2", Injective_Correspondence)
             ] 
         textSettings label = FieldSettings
             { fsLabel = label 
