@@ -38,6 +38,10 @@ text \<open> All pairs of agents that form a communication from a source to a de
 definition "AllOtherAgentsButIntr A = [B. B \<leftarrow> AllAgentsButIntruder', B \<noteq> A]"
 definition "AllCommsAgentsButIntr = [(A, B). A \<leftarrow> AllAgentsButIntruder', B \<leftarrow> AllOtherAgentsButIntr A]"
 definition "AllOtherAgents A = [B. B \<leftarrow> AllAgents', B \<noteq> A]"
+
+text \<open> Communications from an honest sender to any receiver, including the intruder.
+  This is the alphabet the intruder may observe: it also receives messages addressed to itself. \<close>
+definition "AllCommsAgentsFromHonest = [(A, B). A \<leftarrow> AllAgentsButIntruder', B \<leftarrow> AllOtherAgents A]"
 definition "AllCommsAgents = [(A, B). A \<leftarrow> AllAgents', B \<leftarrow> AllOtherAgents A]"
 
 abbreviation NonceMap :: "dagent \<Zpfun> dnonce"  where 
@@ -80,7 +84,7 @@ abbreviation intruder_in_range_map :: "deve \<Rightarrow> dagent \<Zpfun> bool" 
 
 definition "mkbma A \<equiv> (MBitm ((bitmask_map(A))))"
 abbreviation "bm_or_null_b b A \<equiv> (if b then mkbma A else MBitm Null)"
-abbreviation "bm_or_null A eve \<equiv> bm_or_null_b (intruder_in_range_map eve A) A"
+abbreviation "bm_or_null A eve \<equiv> (if A = Intruder then MBitm Null else bm_or_null_b (intruder_in_range_map eve A) A)"
 
 abbreviation "Secrets_Nonces \<equiv> removeAll (MNon (NonceMap Intruder)) AllNoncesLst'"
 abbreviation "Secrets_PKs \<equiv> removeAll (MK (Kp (NonceMap Intruder))) AllPKsLst'"

@@ -10,12 +10,12 @@ module
                 all_msg12_agent_recv, all_wm_msg4_agent_send,
                 all_wm_msg3_agent_send, all_wm_msg123_agent_send, all_msgs,
                 pLeakOnlyOnce, all_jm_wm_msg123_agent_send,
-                intruder_jamming_events, jamming_intruder, allRecvMsgs,
-                allPossibleMsgsRecvByAgents, pIntruder0, pIntruder0a,
-                pIntruder1, pIntruder, a_snd_msgs, all_msgs_I, b_snd_msgs,
-                terminate_event, evt_msgs_recv, b_recv_events, a_recv_events,
-                evt_msgs_snd, b_snd_events, a_snd_events, events_A_B_I,
-                dHWJ_active, dHWJ_active_eve1, dHWJ_active_eve2,
+                intruder_jamming_events, relay_or_skip, jamming_intruder,
+                allRecvMsgs, allPossibleMsgsRecvByAgents, pIntruder0,
+                pIntruder0a, pIntruder1, pIntruder, a_snd_msgs, all_msgs_I,
+                b_snd_msgs, terminate_event, evt_msgs_recv, b_recv_events,
+                a_recv_events, evt_msgs_snd, b_snd_events, a_snd_events,
+                events_A_B_I, dHWJ_active, dHWJ_active_eve1, dHWJ_active_eve2,
                 dHWJ_active_eve3, dHWJ_active_eve4)
   where {
 
@@ -300,8 +300,7 @@ responder b nb a =
     (\ _ ->
       Interaction_Trees.bind_itree
         (ITree_CSP.inp_list_where Sec_Messages.cjam
-          (map (\ m -> Sec_Messages.MJam m (DHWJ_config.mkbma b))
-            (all_wm_msg12_agent_recv b))
+          [Sec_Messages.MJam (wm_msg12_agent_send a) (DHWJ_config.mkbma b)]
           (\ _ -> True))
         (\ m1 ->
           let {
@@ -659,8 +658,7 @@ initiator a na =
         (\ _ ->
           Interaction_Trees.bind_itree
             (ITree_CSP.inp_list_where Sec_Messages.cjam
-              (map (\ m -> Sec_Messages.MJam m (DHWJ_config.mkbma a))
-                (all_wm_msg12_agent_recv a))
+              [Sec_Messages.MJam (wm_msg12_agent_send b) (DHWJ_config.mkbma a)]
               (\ _ -> True))
             (\ m ->
               let {
@@ -963,36 +961,52 @@ all_jm_wm_msg123_agent_send eve =
       concatMap
         (\ m ->
           map (Sec_Messages.MJam m)
-            [(if Interaction_Trees.pfun_app
-                   (case eve of {
-                     DHWJ_config.Eve1 ->
-                       Interaction_Trees.pfun_upd
-                         (Interaction_Trees.pfun_upd Interaction_Trees.bot_pfun
-                           (Sec_Messages.Agent (FSNat.Nmk Arith.zero_nat)) True)
-                         (Sec_Messages.Agent (FSNat.Nmk Arith.one_nat)) False;
-                     DHWJ_config.Eve2 ->
-                       Interaction_Trees.pfun_upd
-                         (Interaction_Trees.pfun_upd Interaction_Trees.bot_pfun
-                           (Sec_Messages.Agent (FSNat.Nmk Arith.zero_nat))
-                           False)
-                         (Sec_Messages.Agent (FSNat.Nmk Arith.one_nat)) True;
-                     DHWJ_config.Eve3 ->
-                       Interaction_Trees.pfun_upd
-                         (Interaction_Trees.pfun_upd Interaction_Trees.bot_pfun
-                           (Sec_Messages.Agent (FSNat.Nmk Arith.zero_nat)) True)
-                         (Sec_Messages.Agent (FSNat.Nmk Arith.one_nat)) True;
-                     DHWJ_config.Eve4 ->
-                       Interaction_Trees.pfun_upd
-                         (Interaction_Trees.pfun_upd Interaction_Trees.bot_pfun
-                           (Sec_Messages.Agent (FSNat.Nmk Arith.zero_nat))
-                           False)
-                         (Sec_Messages.Agent (FSNat.Nmk Arith.one_nat)) False;
-                   })
-                   b
-               then DHWJ_config.mkbma b
-               else Sec_Messages.MBitm Sec_Messages.Null)])
+            [(if Sec_Messages.equal_dagent b Sec_Messages.Intruder
+               then Sec_Messages.MBitm Sec_Messages.Null
+               else (if Interaction_Trees.pfun_app
+                          (case eve of {
+                            DHWJ_config.Eve1 ->
+                              Interaction_Trees.pfun_upd
+                                (Interaction_Trees.pfun_upd
+                                  Interaction_Trees.bot_pfun
+                                  (Sec_Messages.Agent
+                                    (FSNat.Nmk Arith.zero_nat))
+                                  True)
+                                (Sec_Messages.Agent (FSNat.Nmk Arith.one_nat))
+                                False;
+                            DHWJ_config.Eve2 ->
+                              Interaction_Trees.pfun_upd
+                                (Interaction_Trees.pfun_upd
+                                  Interaction_Trees.bot_pfun
+                                  (Sec_Messages.Agent
+                                    (FSNat.Nmk Arith.zero_nat))
+                                  False)
+                                (Sec_Messages.Agent (FSNat.Nmk Arith.one_nat))
+                                True;
+                            DHWJ_config.Eve3 ->
+                              Interaction_Trees.pfun_upd
+                                (Interaction_Trees.pfun_upd
+                                  Interaction_Trees.bot_pfun
+                                  (Sec_Messages.Agent
+                                    (FSNat.Nmk Arith.zero_nat))
+                                  True)
+                                (Sec_Messages.Agent (FSNat.Nmk Arith.one_nat))
+                                True;
+                            DHWJ_config.Eve4 ->
+                              Interaction_Trees.pfun_upd
+                                (Interaction_Trees.pfun_upd
+                                  Interaction_Trees.bot_pfun
+                                  (Sec_Messages.Agent
+                                    (FSNat.Nmk Arith.zero_nat))
+                                  False)
+                                (Sec_Messages.Agent (FSNat.Nmk Arith.one_nat))
+                                False;
+                          })
+                          b
+                      then DHWJ_config.mkbma b
+                      else Sec_Messages.MBitm Sec_Messages.Null))])
         (all_wm_msg123_agent_send a))
-    DHWJ_config.allCommsAgentsButIntr;
+    DHWJ_config.allCommsAgentsFromHonest;
 
 intruder_jamming_events ::
   DHWJ_config.Deve ->
@@ -1004,6 +1018,21 @@ intruder_jamming_events ::
        (Numeral_Type.Bit0 Numeral_Type.Num1)];
 intruder_jamming_events eve =
   map Sec_Messages.Cjam_C (all_jm_wm_msg123_agent_send eve);
+
+relay_or_skip ::
+  forall a b c d e f g.
+    (Type_Length.Len a, Typerep.Typerep a, Type_Length.Len b, Typerep.Typerep b,
+      Type_Length.Len c, Typerep.Typerep c, Type_Length.Len d,
+      Typerep.Typerep d, Type_Length.Len e, Typerep.Typerep e,
+      Type_Length.Len f, Typerep.Typerep f, Type_Length.Len g,
+      Typerep.Typerep g) => Sec_Messages.Dagent a ->
+                              Sec_Messages.Dagent a ->
+                                Sec_Messages.Dmsg a b c d e f g ->
+                                  Interaction_Trees.Itree
+                                    (Sec_Messages.Chan a b c d e f g) ();
+relay_or_skip a b m =
+  (if Sec_Messages.equal_dagent b Sec_Messages.Intruder then ITree_CSP.skip
+    else ITree_CSP.outp Sec_Messages.recv (a, (Sec_Messages.Intruder, (b, m))));
 
 jamming_intruder ::
   DHWJ_config.Deve ->
@@ -1024,64 +1053,62 @@ jamming_intruder eve =
             (\ (a, b) ->
               map (\ m -> (a, (Sec_Messages.Intruder, (b, m))))
                 (all_wm_msg123_agent_send a))
-            DHWJ_config.allCommsAgentsButIntr)
+            DHWJ_config.allCommsAgentsFromHonest)
           (\ _ -> True))
         (\ (a, (_, (b, m))) ->
           ITree_CSP.gpar_csp
             (CSP_operators.outp_choice_from_list Sec_Messages.cjam
               (\ _ -> ITree_CSP.skip)
-              (map (\ ba ->
-                     Sec_Messages.MJam m
-                       (if Interaction_Trees.pfun_app
-                             (case eve of {
-                               DHWJ_config.Eve1 ->
-                                 Interaction_Trees.pfun_upd
-                                   (Interaction_Trees.pfun_upd
-                                     Interaction_Trees.bot_pfun
-                                     (Sec_Messages.Agent
-                                       (FSNat.Nmk Arith.zero_nat))
-                                     True)
-                                   (Sec_Messages.Agent
-                                     (FSNat.Nmk Arith.one_nat))
-                                   False;
-                               DHWJ_config.Eve2 ->
-                                 Interaction_Trees.pfun_upd
-                                   (Interaction_Trees.pfun_upd
-                                     Interaction_Trees.bot_pfun
-                                     (Sec_Messages.Agent
-                                       (FSNat.Nmk Arith.zero_nat))
-                                     False)
-                                   (Sec_Messages.Agent
-                                     (FSNat.Nmk Arith.one_nat))
-                                   True;
-                               DHWJ_config.Eve3 ->
-                                 Interaction_Trees.pfun_upd
-                                   (Interaction_Trees.pfun_upd
-                                     Interaction_Trees.bot_pfun
-                                     (Sec_Messages.Agent
-                                       (FSNat.Nmk Arith.zero_nat))
-                                     True)
-                                   (Sec_Messages.Agent
-                                     (FSNat.Nmk Arith.one_nat))
-                                   True;
-                               DHWJ_config.Eve4 ->
-                                 Interaction_Trees.pfun_upd
-                                   (Interaction_Trees.pfun_upd
-                                     Interaction_Trees.bot_pfun
-                                     (Sec_Messages.Agent
-                                       (FSNat.Nmk Arith.zero_nat))
-                                     False)
-                                   (Sec_Messages.Agent
-                                     (FSNat.Nmk Arith.one_nat))
-                                   False;
-                             })
-                             ba
-                         then DHWJ_config.mkbma ba
-                         else Sec_Messages.MBitm Sec_Messages.Null))
-                (DHWJ_config.allOtherAgentsButIntr a)))
-            Set.bot_set
-            (ITree_CSP.outp Sec_Messages.recv
-              (a, (Sec_Messages.Intruder, (b, m))))))
+              [Sec_Messages.MJam m
+                 (if Sec_Messages.equal_dagent b Sec_Messages.Intruder
+                   then Sec_Messages.MBitm Sec_Messages.Null
+                   else (if Interaction_Trees.pfun_app
+                              (case eve of {
+                                DHWJ_config.Eve1 ->
+                                  Interaction_Trees.pfun_upd
+                                    (Interaction_Trees.pfun_upd
+                                      Interaction_Trees.bot_pfun
+                                      (Sec_Messages.Agent
+(FSNat.Nmk Arith.zero_nat))
+                                      True)
+                                    (Sec_Messages.Agent
+                                      (FSNat.Nmk Arith.one_nat))
+                                    False;
+                                DHWJ_config.Eve2 ->
+                                  Interaction_Trees.pfun_upd
+                                    (Interaction_Trees.pfun_upd
+                                      Interaction_Trees.bot_pfun
+                                      (Sec_Messages.Agent
+(FSNat.Nmk Arith.zero_nat))
+                                      False)
+                                    (Sec_Messages.Agent
+                                      (FSNat.Nmk Arith.one_nat))
+                                    True;
+                                DHWJ_config.Eve3 ->
+                                  Interaction_Trees.pfun_upd
+                                    (Interaction_Trees.pfun_upd
+                                      Interaction_Trees.bot_pfun
+                                      (Sec_Messages.Agent
+(FSNat.Nmk Arith.zero_nat))
+                                      True)
+                                    (Sec_Messages.Agent
+                                      (FSNat.Nmk Arith.one_nat))
+                                    True;
+                                DHWJ_config.Eve4 ->
+                                  Interaction_Trees.pfun_upd
+                                    (Interaction_Trees.pfun_upd
+                                      Interaction_Trees.bot_pfun
+                                      (Sec_Messages.Agent
+(FSNat.Nmk Arith.zero_nat))
+                                      False)
+                                    (Sec_Messages.Agent
+                                      (FSNat.Nmk Arith.one_nat))
+                                    False;
+                              })
+                              b
+                          then DHWJ_config.mkbma b
+                          else Sec_Messages.MBitm Sec_Messages.Null))])
+            Set.bot_set (relay_or_skip a b m)))
     ();
 
 allRecvMsgs ::

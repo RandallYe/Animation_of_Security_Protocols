@@ -2,8 +2,7 @@
 
 module
   DHWJ_config(Deve(..), pks, mkbma, initKnows, allSecrets, allOtherPKs,
-               allOtherAgents, allOtherAgentsButIntr, allCommsAgentsButIntr,
-               equal_deve)
+               allOtherAgents, allCommsAgentsFromHonest, equal_deve)
   where {
 
 import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
@@ -432,19 +431,11 @@ allOtherAgents a =
     [Sec_Messages.Agent (FSNat.Nmk Arith.zero_nat),
       Sec_Messages.Agent (FSNat.Nmk Arith.one_nat), Sec_Messages.Intruder];
 
-allOtherAgentsButIntr ::
-  Sec_Messages.Dagent (Numeral_Type.Bit0 Numeral_Type.Num1) ->
-    [Sec_Messages.Dagent (Numeral_Type.Bit0 Numeral_Type.Num1)];
-allOtherAgentsButIntr a =
-  concatMap (\ b -> (if not (Sec_Messages.equal_dagent b a) then [b] else []))
-    [Sec_Messages.Agent (FSNat.Nmk Arith.zero_nat),
-      Sec_Messages.Agent (FSNat.Nmk Arith.one_nat)];
-
-allCommsAgentsButIntr ::
+allCommsAgentsFromHonest ::
   [(Sec_Messages.Dagent (Numeral_Type.Bit0 Numeral_Type.Num1),
      Sec_Messages.Dagent (Numeral_Type.Bit0 Numeral_Type.Num1))];
-allCommsAgentsButIntr =
-  concatMap (\ a -> map (\ b -> (a, b)) (allOtherAgentsButIntr a))
+allCommsAgentsFromHonest =
+  concatMap (\ a -> map (\ b -> (a, b)) (allOtherAgents a))
     [Sec_Messages.Agent (FSNat.Nmk Arith.zero_nat),
       Sec_Messages.Agent (FSNat.Nmk Arith.one_nat)];
 

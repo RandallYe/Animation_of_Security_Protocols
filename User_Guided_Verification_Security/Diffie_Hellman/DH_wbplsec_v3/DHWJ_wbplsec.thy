@@ -76,7 +76,7 @@ definition "all_wm_msg123_agent_send A = [wm_msg12_agent_send A] @ all_wm_msg3_a
 value "all_wm_msg123_agent_send Alice"
 
 text \<open> All the messages that agents (A) will send and its counterpart (B) will jam \<close>
-definition "all_jm_wm_msg123_agent_send eve = [{m}\<^sup>j\<^bsub>b\<^esub> . (A, B) \<leftarrow> AllCommsAgentsButIntr, 
+definition "all_jm_wm_msg123_agent_send eve = [{m}\<^sup>j\<^bsub>b\<^esub> . (A, B) \<leftarrow> AllCommsAgentsFromHonest,
     m \<leftarrow> all_wm_msg123_agent_send A, b \<leftarrow> [bm_or_null B eve]]"
 
 value "AllCommsAgentsButIntr"
@@ -115,19 +115,22 @@ definition jamming :: "dagent \<Rightarrow> dmsg list \<Rightarrow> \<bool> \<Ri
   ()
 }"
 
+text \<open> Relay a received message to its receiver, unless the receiver is the intruder itself. \<close>
+definition "relay_or_skip A B m = (if B = Intruder then skip else outp relay (A, Intruder, B, m))"
+
 text \<open> A jamming process for Intruder. \<close>
 definition jamming_intruder :: "deve \<Rightarrow> (chan, unit) itree" where
 "jamming_intruder eve = do {
   loop (\<lambda>s. 
     do {
       \<comment> \<open> What Intruder can hear is what other agents can send \<close>
-      (A, _, B, m) \<leftarrow> inp_in hear (set [(A, Intruder, B, m). (A, B) \<leftarrow> AllCommsAgentsButIntr, 
+      (A, _, B, m) \<leftarrow> inp_in hear (set [(A, Intruder, B, m). (A, B) \<leftarrow> AllCommsAgentsFromHonest,
         m \<leftarrow> all_wm_msg123_agent_send A]); 
       \<comment> \<open> Intruder can hear all jammed m by other agents (B) \<close>                               
-      ((outp_choice_from_set cjam (\<lambda>s. skip) (set [{m}\<^sup>j\<^bsub>(bm_or_null B eve)\<^esub> . B \<leftarrow> AllOtherAgentsButIntr A]))
+      ((outp_choice_from_set cjam (\<lambda>s. skip) (set [{m}\<^sup>j\<^bsub>(bm_or_null B eve)\<^esub>]))
       \<interleave>
-      \<comment> \<open> Intruder also relays the original message m to B \<close>
-      (outp relay (A, Intruder, B, m)))
+      \<comment> \<open> Intruder also relays the original message m to B (not to itself) \<close>
+      (relay_or_skip A B m))
     }
   )
   ()
