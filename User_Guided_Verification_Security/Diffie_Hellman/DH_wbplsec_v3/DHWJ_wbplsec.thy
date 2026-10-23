@@ -141,8 +141,8 @@ definition Initiator :: "dagent \<Rightarrow> dnonce \<Rightarrow> (chan, unit) 
     do {
       \<comment> \<open> Send g^na \<close>
       outp send (A, Intruder, B, wm_msg12_agent_send A);
-       \<comment> \<open> Receive g^nb \<close>
-      m \<leftarrow> inp_in cjam (set ([{m}\<^sup>j\<^bsub>mkbma A\<^esub> . m \<leftarrow> all_wm_msg12_agent_recv A]));
+       \<comment> \<open> Receive g^nb, but only if it carries B's watermark \<close>
+      m \<leftarrow> inp_in cjam (set ([{wm_msg12_agent_send B}\<^sup>j\<^bsub>mkbma A\<^esub>]));
       let gy = (mwm (mjm m))
       in
         do {
@@ -228,8 +228,8 @@ definition Responder :: "dagent \<Rightarrow> dnonce \<Rightarrow> dagent \<Righ
   do {
      \<comment> \<open> Send g^nb \<close>
     outp send (B, Intruder, A, wm_msg12_agent_send B);
-     \<comment> \<open> Receive g^na \<close>
-    m1 \<leftarrow> inp_in cjam (set ([{m}\<^sup>j\<^bsub>mkbma B\<^esub> . m \<leftarrow> all_wm_msg12_agent_recv B]));
+     \<comment> \<open> Receive g^na, but only if it carries A's watermark \<close>
+    m1 \<leftarrow> inp_in cjam (set ([{wm_msg12_agent_send A}\<^sup>j\<^bsub>mkbma B\<^esub>]));
     let gx = (mwm (mjm m1))
     in
       do {
