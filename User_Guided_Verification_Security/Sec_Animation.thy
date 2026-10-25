@@ -113,8 +113,8 @@ ppSet _ = ""
 
 ppList a = (Prelude.foldl (\x y -> x ++ y) "" a)
 
-ppSig :: Dsig a b -> String
-ppSig (ClaimSecret a n d) = "CliamSecret " ++ "(" ++ ppAgent a ++ ") (" ++ ppNonce n ++ ") (" ++ ppSet d ++ ")";
+ppSig :: Dsig a b c d e f g -> String
+ppSig (ClaimSecret a n d) = "CliamSecret " ++ "(" ++ ppAgent a ++ ") (" ++ ppMsg n ++ ") (" ++ ppSet d ++ ")";
 ppSig (StartProt s d ns nd) = "StartProt " ++ "(" ++ ppAgent s ++ ") (" ++ ppAgent d ++ ") (" ++ ppNonce ns ++ ") (" ++ ppNonce nd ++ ")";
 ppSig (EndProt s d ns nd) = "EndProt " ++ "(" ++ ppAgent s ++ ") (" ++ ppAgent d ++ ") (" ++ ppNonce ns ++ ") (" ++ ppNonce nd ++ ")";
 
@@ -478,8 +478,8 @@ formatEvents (Recv_C (a, (b, (c, d)))) = ("Recv", ppAgent a, ppAgent b, ppAgent 
 formatEvents (Leak_C d) = ("Leak", "Intruder", "Intruder", "Env", ppMsg d); 
 formatEvents (Sig_C s) = case s of 
   (ClaimSecret a n d) -> case d of 
-    Set.Set [x] -> ("[Sig]ClaimSecret", ppAgent a, ppAgent a, ppAgent x, ppNonce n); 
-    _ -> ("[Sig]ClaimSecret", ppAgent a, ppAgent a,"", ppNonce n); 
+    Set.Set [x] -> ("[Sig]ClaimSecret", ppAgent a, ppAgent a, ppAgent x, ppMsg n); 
+    _ -> ("[Sig]ClaimSecret", ppAgent a, ppAgent a,"", ppMsg n); 
   (StartProt s d ns nd) -> ("[Sig]StartProt", ppAgent s, ppAgent s, ppAgent d, ppNonce ns ++ "/" ++ ppNonce nd); 
   (EndProt s d ns nd) -> ("[Sig]EndProt", ppAgent s, ppAgent s, ppAgent d, ppNonce ns ++ "/" ++ ppNonce nd); 
 formatEvents (Terminate_C _) = ("Terminate", "Sys", "Sys", "Env", "");

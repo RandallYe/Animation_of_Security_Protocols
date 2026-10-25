@@ -76,7 +76,7 @@ definition Initiator :: "dagent \<Rightarrow> dnonce \<Rightarrow> (chan, unit) 
     (_, B) \<leftarrow> inp_in env (set [(A, C). C \<leftarrow> AllAgents', C \<noteq> A]);
     do {
       \<comment> \<open> Send a signal to claim na is secret between A and B \<close>
-      outp sig (ClaimSecret A na (set [B]));
+      outp sig (ClaimSecret A (MNon na) (set [B]));
       \<comment> \<open> Send Msg1 \<close>
       outp send (A, Intruder, B, msg1a A);
       \<comment> \<open> Receive Msg2 \<close>
@@ -138,7 +138,7 @@ definition "PAlice =
 \<^cancel>\<open> animate_sec_sound PAlice \<close>
 
 definition A_I_sig :: "dagent \<Rightarrow> dnonce \<Rightarrow> chan list" where
-"A_I_sig A na = [sig_C (ClaimSecret A nb (set [B])). 
+"A_I_sig A na = [sig_C (ClaimSecret A (MNon nb) (set [B])). 
   nb \<leftarrow> AllNonces', B \<leftarrow> removeAll A AllAgents']"
 
 definition "terminate_rename = [(terminate_C (), terminate_C ())]"
@@ -155,7 +155,7 @@ definition Responder :: "dagent \<Rightarrow> dnonce \<Rightarrow> (chan, unit) 
           in
             do {  
                   \<comment> \<open> Send a signal to claim nb is secret between A and B \<close>
-                  outp sig (ClaimSecret B nb (set [A]));
+                  outp sig (ClaimSecret B (MNon nb) (set [A]));
                   outp sig (StartProt B A na nb);
                   \<comment> \<open> Send Msg2 \<close>
                   outp send (B, Intruder, A, msg2b B na nb);
@@ -211,7 +211,7 @@ definition "PBob =
 \<^cancel>\<open> animate_sec_sound "PBob" \<close>
 
 definition B_I_sig :: "dagent \<Rightarrow> dnonce \<Rightarrow> chan list" where
-"B_I_sig B nb = [sig_C (ClaimSecret B na (set [A])).
+"B_I_sig B nb = [sig_C (ClaimSecret B (MNon na) (set [A])).
   na \<leftarrow> AllNonces', A \<leftarrow> removeAll B AllAgents']"
 
 subsubsection \<open> Intruder \<close>
@@ -258,9 +258,9 @@ definition PIntruder0:: "dagent \<Rightarrow> dnonce \<Rightarrow> dmsg list \<R
     \<box> do { outp terminate (); Ret (False, knows, sec) }
     \<comment> \<open> If an agent claims n is secret and only knows to agent B, which is the intruder. We can remove 
       this nonce in the secret. \<close>
-    \<box> do { c \<leftarrow> inp_in sig (set [(ClaimSecret A n (set [B])). A \<leftarrow> AllAgentsButIntruder', 
+    \<box> do { c \<leftarrow> inp_in sig (set [(ClaimSecret A (MNon n) (set [B])). A \<leftarrow> AllAgentsButIntruder', 
               n \<leftarrow> removeAll ni AllNonces',  B \<leftarrow> AllAgents', A \<noteq> B]);
-              (if I \<in> (sp c) then Ret (True, knows, (removeAll (MNon (sn c)) sec)) else Ret (True, knows, sec))
+              (if I \<in> (sp c) then Ret (True, knows, (removeAll (sn c) sec)) else Ret (True, knows, sec))
           }
     \<box> do { 
           \<comment> \<open> List.member should only be used for code generation, see comments in its definition \<close>
@@ -384,9 +384,9 @@ definition PIntruder0_passive:: "dagent \<Rightarrow> dnonce \<Rightarrow> dmsg 
     \<box> do { outp terminate (); Ret (False, knows, sec) }
     \<comment> \<open> If an agent claims n is secret and only knows to agent B, which is the intruder. We can remove 
       this nonce in the secret. \<close>
-    \<box> do { c \<leftarrow> inp_in sig (set [(ClaimSecret A n (set [B])). A \<leftarrow> AllAgentsButIntruder', 
+    \<box> do { c \<leftarrow> inp_in sig (set [(ClaimSecret A (MNon n) (set [B])). A \<leftarrow> AllAgentsButIntruder', 
               n \<leftarrow> removeAll ni AllNonces',  B \<leftarrow> AllAgents', A \<noteq> B]);
-              (if I \<in> (sp c) then Ret (True, knows, (removeAll (MNon (sn c)) sec)) else Ret (True, knows, sec))
+              (if I \<in> (sp c) then Ret (True, knows, (removeAll (sn c) sec)) else Ret (True, knows, sec))
           }
     \<box> do { 
           \<comment> \<open> List.member should only be used for code generation, see comments in its definition \<close>

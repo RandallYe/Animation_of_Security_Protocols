@@ -151,6 +151,8 @@ definition Initiator :: "dagent \<Rightarrow> dnonce \<Rightarrow> (chan, unit) 
         do {
           \<comment> \<open> For signal here, we can recover n from g^n. But Intruder cannot learn n from g^n. \<close>
           outp sig (StartProt A B na (mn (mmek gy)));
+          \<comment> \<open> Claim PK A secret to B; if B is the intruder, it is the intended recipient. \<close>
+          outp sig (ClaimSecret A (MPK A) (set [B]));
           \<comment> \<open> Send Msg3 \<close>
           \<comment> \<open> MKp (PK A) is chosen as a secret, encrypted with (g^b)^a and where g^b = gy \<close>
           outp send (A, Intruder, B, wm_msg3_agent_send A na gy);
@@ -337,6 +339,10 @@ definition PIntruder0:: "dagent \<Rightarrow> dnonce \<Rightarrow> dmsg list \<R
                 AllRecvMsgs) ); 
             Ret (True, knows, sec) 
       }
+    \<comment> \<open> Alice claimed PK A secret to B: if I is among the intended recipients, it is not a secret from I. \<close>
+    \<box> do { c \<leftarrow> inp_in sig (set [(ClaimSecret Alice (MPK Alice) (set [B])). B \<leftarrow> AllAgents', B \<noteq> Alice]);
+                (if I \<in> (sp c) then Ret (True, knows, (removeAll (sn c) sec)) else Ret (True, knows, sec))
+            }
     \<box> do { outp terminate (); Ret (False, knows, sec) }
     \<box> do { 
           \<comment> \<open> List.member should only be used for code generation, see comments in its definition \<close>
@@ -389,11 +395,15 @@ definition evt_msgs_snd :: "chan list" where
 definition evt_msgs_recv :: "chan list" where 
 "evt_msgs_recv = [recv_C m. m \<leftarrow> List.union All_msgs All_msgs_I]"
 
+definition A_I_sig :: "dagent \<Rightarrow> chan list" where
+"A_I_sig A = [sig_C (ClaimSecret A (MPK A) (set [B])). B \<leftarrow> removeAll A AllAgents']"
+
 definition "Events_A_B_I = (set (remdups 
   (     A_snd_events Alice (NonceMap(Alice))
       @ A_recv_events Alice 
       @ B_snd_events Bob (NonceMap Bob) 
       @ B_recv_events Bob (NonceMap Bob)
+      @ A_I_sig Alice
       @ terminate_event 
       @ evt_msgs_snd @ evt_msgs_recv)
     )

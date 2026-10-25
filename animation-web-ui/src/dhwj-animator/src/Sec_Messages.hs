@@ -1,16 +1,16 @@
 {-# LANGUAGE EmptyDataDecls, RankNTypes, ScopedTypeVariables #-}
 
 module
-  Sec_Messages(Dagent(..), equal_dagent, Dsig(..), equal_dsig, Dbitmask(..),
-                equal_dbitmask, Dkey(..), equal_dkey, Dmsg(..), equal_dmsg,
+  Sec_Messages(Dagent(..), equal_dagent, Dbitmask(..), equal_dbitmask, Dkey(..),
+                equal_dkey, Dmsg(..), equal_dmsg, Dsig(..), equal_dsig,
                 Chan(..), equal_chan, last4, pKsLst, submsg_list, submsgs_list,
                 less_eq_dbitmask, one_step, step_once, iter_closure, breakl,
-                expGLst, ks, mn, allExpGs, un_env_C, is_env_C, env, un_sig_C,
-                is_sig_C, sig, mjm, mwm, pk_of_sk, agentsLst, noncesLst,
-                buildable, un_cjam_C, is_cjam_C, cjam, un_leak_C, is_leak_C,
-                leak, un_recv_C, is_recv_C, recv, un_send_C, is_send_C, send,
-                mmek, msek, msem, swap_mod_exp, un_terminate_C, is_terminate_C,
-                terminate, filter_buildable)
+                expGLst, ks, mn, sn, sp, allExpGs, un_env_C, is_env_C, env,
+                un_sig_C, is_sig_C, sig, mjm, mwm, pk_of_sk, agentsLst,
+                noncesLst, buildable, un_cjam_C, is_cjam_C, cjam, un_leak_C,
+                is_leak_C, leak, un_recv_C, is_recv_C, recv, un_send_C,
+                is_send_C, send, mmek, msek, msem, swap_mod_exp, un_terminate_C,
+                is_terminate_C, terminate, filter_buildable)
   where {
 
 import Prelude ((==), (/=), (<), (<=), (>=), (>), (+), (-), (*), (/), (**),
@@ -44,35 +44,6 @@ equal_dagent Intruder (Agent x1) = False;
 equal_dagent (Agent x1) (Agent y1) = FSNat.equal_fsnat x1 y1;
 equal_dagent Server Server = True;
 equal_dagent Intruder Intruder = True;
-
-data Dsig a b = ClaimSecret (Dagent a) (FSNat.Fsnat b) (Set.Set (Dagent a))
-  | StartProt (Dagent a) (Dagent a) (FSNat.Fsnat b) (FSNat.Fsnat b)
-  | EndProt (Dagent a) (Dagent a) (FSNat.Fsnat b) (FSNat.Fsnat b)
-  deriving (Prelude.Read, Prelude.Show);
-
-instance (Type_Length.Len a) => Eq (Dagent a) where {
-  a == b = equal_dagent a b;
-};
-
-equal_dsig ::
-  forall a b.
-    (Type_Length.Len a, Type_Length.Len b) => Dsig a b -> Dsig a b -> Bool;
-equal_dsig (StartProt x21 x22 x23 x24) (EndProt x31 x32 x33 x34) = False;
-equal_dsig (EndProt x31 x32 x33 x34) (StartProt x21 x22 x23 x24) = False;
-equal_dsig (ClaimSecret x11 x12 x13) (EndProt x31 x32 x33 x34) = False;
-equal_dsig (EndProt x31 x32 x33 x34) (ClaimSecret x11 x12 x13) = False;
-equal_dsig (ClaimSecret x11 x12 x13) (StartProt x21 x22 x23 x24) = False;
-equal_dsig (StartProt x21 x22 x23 x24) (ClaimSecret x11 x12 x13) = False;
-equal_dsig (EndProt x31 x32 x33 x34) (EndProt y31 y32 y33 y34) =
-  equal_dagent x31 y31 &&
-    equal_dagent x32 y32 &&
-      FSNat.equal_fsnat x33 y33 && FSNat.equal_fsnat x34 y34;
-equal_dsig (StartProt x21 x22 x23 x24) (StartProt y21 y22 y23 y24) =
-  equal_dagent x21 y21 &&
-    equal_dagent x22 y22 &&
-      FSNat.equal_fsnat x23 y23 && FSNat.equal_fsnat x24 y24;
-equal_dsig (ClaimSecret x11 x12 x13) (ClaimSecret y11 y12 y13) =
-  equal_dagent x11 y11 && FSNat.equal_fsnat x12 y12 && Set.equal_set x13 y13;
 
 data Dbitmask a b = Null | Bm (FSNat.Fsnat a) (FSNat.Fsnat b)
   deriving (Prelude.Read, Prelude.Show);
@@ -265,11 +236,43 @@ equal_dmsg (MK x3) (MK y3) = equal_dkey x3 y3;
 equal_dmsg (MNon x2) (MNon y2) = FSNat.equal_fsnat x2 y2;
 equal_dmsg (MAg x1) (MAg y1) = equal_dagent x1 y1;
 
+data Dsig a b c d e f g =
+  ClaimSecret (Dagent a) (Dmsg a b c d e f g) (Set.Set (Dagent a))
+  | StartProt (Dagent a) (Dagent a) (FSNat.Fsnat b) (FSNat.Fsnat b)
+  | EndProt (Dagent a) (Dagent a) (FSNat.Fsnat b) (FSNat.Fsnat b)
+  deriving (Prelude.Read, Prelude.Show);
+
+instance (Type_Length.Len a) => Eq (Dagent a) where {
+  a == b = equal_dagent a b;
+};
+
+equal_dsig ::
+  forall a b c d e f g.
+    (Type_Length.Len a, Type_Length.Len b, Type_Length.Len c, Type_Length.Len d,
+      Type_Length.Len e, Type_Length.Len f,
+      Type_Length.Len g) => Dsig a b c d e f g -> Dsig a b c d e f g -> Bool;
+equal_dsig (StartProt x21 x22 x23 x24) (EndProt x31 x32 x33 x34) = False;
+equal_dsig (EndProt x31 x32 x33 x34) (StartProt x21 x22 x23 x24) = False;
+equal_dsig (ClaimSecret x11 x12 x13) (EndProt x31 x32 x33 x34) = False;
+equal_dsig (EndProt x31 x32 x33 x34) (ClaimSecret x11 x12 x13) = False;
+equal_dsig (ClaimSecret x11 x12 x13) (StartProt x21 x22 x23 x24) = False;
+equal_dsig (StartProt x21 x22 x23 x24) (ClaimSecret x11 x12 x13) = False;
+equal_dsig (EndProt x31 x32 x33 x34) (EndProt y31 y32 y33 y34) =
+  equal_dagent x31 y31 &&
+    equal_dagent x32 y32 &&
+      FSNat.equal_fsnat x33 y33 && FSNat.equal_fsnat x34 y34;
+equal_dsig (StartProt x21 x22 x23 x24) (StartProt y21 y22 y23 y24) =
+  equal_dagent x21 y21 &&
+    equal_dagent x22 y22 &&
+      FSNat.equal_fsnat x23 y23 && FSNat.equal_fsnat x24 y24;
+equal_dsig (ClaimSecret x11 x12 x13) (ClaimSecret y11 y12 y13) =
+  equal_dagent x11 y11 && equal_dmsg x12 y12 && Set.equal_set x13 y13;
+
 data Chan a b c d e f g = Env_C (Dagent a, Dagent a)
   | Send_C (Dagent a, (Dagent a, (Dagent a, Dmsg a b c d e f g)))
   | Cjam_C (Dmsg a b c d e f g) | Cdejam_C (Dmsg a b c d e f g)
   | Recv_C (Dagent a, (Dagent a, (Dagent a, Dmsg a b c d e f g)))
-  | Leak_C (Dmsg a b c d e f g) | Sig_C (Dsig a b) | Terminate_C ()
+  | Leak_C (Dmsg a b c d e f g) | Sig_C (Dsig a b c d e f g) | Terminate_C ()
   deriving (Prelude.Read, Prelude.Show);
 
 instance (Type_Length.Len a, Type_Length.Len b, Type_Length.Len c,
@@ -573,6 +576,18 @@ mn :: forall a b c d e f g.
           Type_Length.Len g) => Dmsg a b c d e f g -> FSNat.Fsnat b;
 mn (MNon x2) = x2;
 
+sn :: forall a b c d e f g.
+        (Type_Length.Len a, Type_Length.Len b, Type_Length.Len c,
+          Type_Length.Len d, Type_Length.Len e, Type_Length.Len f,
+          Type_Length.Len g) => Dsig a b c d e f g -> Dmsg a b c d e f g;
+sn (ClaimSecret x11 x12 x13) = x12;
+
+sp :: forall a b c d e f g.
+        (Type_Length.Len a, Type_Length.Len b, Type_Length.Len c,
+          Type_Length.Len d, Type_Length.Len e, Type_Length.Len f,
+          Type_Length.Len g) => Dsig a b c d e f g -> Set.Set (Dagent a);
+sp (ClaimSecret x11 x12 x13) = x13;
+
 allExpGs :: forall a. (Type_Length.Len a) => [FSNat.Fsnat a];
 allExpGs = FSNat.enum_fsnat;
 
@@ -617,7 +632,7 @@ un_sig_C ::
       Type_Length.Len c, Typerep.Typerep c, Type_Length.Len d,
       Typerep.Typerep d, Type_Length.Len e, Typerep.Typerep e,
       Type_Length.Len f, Typerep.Typerep f, Type_Length.Len g,
-      Typerep.Typerep g) => Chan a b c d e f g -> Dsig a b;
+      Typerep.Typerep g) => Chan a b c d e f g -> Dsig a b c d e f g;
 un_sig_C (Sig_C x7) = x7;
 
 is_sig_C ::
@@ -642,7 +657,8 @@ sig ::
       Type_Length.Len c, Typerep.Typerep c, Type_Length.Len d,
       Typerep.Typerep d, Type_Length.Len e, Typerep.Typerep e,
       Type_Length.Len f, Typerep.Typerep f, Type_Length.Len g,
-      Typerep.Typerep g) => Prisms.Prism_ext (Dsig a b) (Chan a b c d e f g) ();
+      Typerep.Typerep g) => Prisms.Prism_ext (Dsig a b c d e f g)
+                              (Chan a b c d e f g) ();
 sig = Channel_Type.ctor_prism Sig_C is_sig_C un_sig_C;
 
 mjm ::

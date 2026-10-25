@@ -32,7 +32,7 @@ definition Initiator :: "dagent \<Rightarrow> dnonce \<Rightarrow> (chan, unit) 
           (_, B) \<leftarrow> inp_in env (set [(A, C). C \<leftarrow> AllAgents', C \<noteq> A]);
           do {
                 \<comment> \<open> Send a signal to claim na is secret between A and B \<close>
-                outp sig (ClaimSecret A na (set [B]));
+                outp sig (ClaimSecret A (MNon na) (set [B]));
                 \<comment> \<open> Send Msg1 \<close>
                 outp send (A, Intruder, B, {\<lbrace>MNon (na), MAg A\<rbrace>\<^sub>m}\<^sup>a\<^bsub>MK (pks(B))\<^esub> );
                 \<comment> \<open> Receive Msg2. We use B' (instead of B) here so this package can be from any agent. 
@@ -83,7 +83,7 @@ definition A_I_rcv_event :: "dagent \<Rightarrow> dnonce \<Rightarrow> chan list
 "A_I_rcv_event A na = [recv_C m. m \<leftarrow> A_I_rcv_msg A na]"
 
 definition A_I_sig :: "dagent \<Rightarrow> dnonce \<Rightarrow> chan list" where 
-"A_I_sig A na = [sig_C (ClaimSecret A nb (set [B])). 
+"A_I_sig A na = [sig_C (ClaimSecret A (MNon nb) (set [B])). 
   nb \<leftarrow> AllNonces', B \<leftarrow> removeAll A AllAgents']"
 
 definition "terminate_rename = [(terminate_C (), terminate_C ())]"
@@ -103,7 +103,7 @@ definition Responder :: "dagent \<Rightarrow> dnonce \<Rightarrow> (chan, unit) 
           in
             do {  
                   \<comment> \<open> Send a signal to claim nb is secret between A and B \<close>
-                  outp sig (ClaimSecret B nb (set [A]));
+                  outp sig (ClaimSecret B (MNon nb) (set [A]));
                   outp sig (StartProt B A na nb);
                   \<comment> \<open> Send Msg2 \<close>
                   outp send (B, Intruder, A, {\<lbrace>MNon na, MNon nb\<rbrace>\<^sub>m}\<^sup>a\<^bsub>MK (pks(A))\<^esub> );
@@ -146,7 +146,7 @@ value "(B_I_rcv_msg Bob (NonceMap Bob) @ B_I_snd_msg Bob (NonceMap Bob))"
 definition B_I_snd_event :: "dagent \<Rightarrow> dnonce \<Rightarrow> chan list" where 
 "B_I_snd_event B nb = [send_C m. m \<leftarrow> B_I_snd_msg B nb]"
 
-definition "B_I_sig B nb = [sig_C (ClaimSecret B na (set [A])). 
+definition "B_I_sig B nb = [sig_C (ClaimSecret B (MNon na) (set [A])). 
   na \<leftarrow> AllNonces', A \<leftarrow> removeAll B AllAgents']"
 
 subsubsection \<open> Intruder \<close>
@@ -176,9 +176,9 @@ definition PIntruder0:: "dagent \<Rightarrow> dnonce \<Rightarrow> dmsg list \<R
     \<box> do { outp terminate (); Ret (False, knows, sec) }
     \<comment> \<open> If an agent claims n is secret and only knows to agent B, which is the intruder. We can remove 
       this nonce in the secret. \<close>
-    \<box> do { c \<leftarrow> inp_in sig (set [(ClaimSecret A n (set [B])). A \<leftarrow> removeAll I AllAgents', 
+    \<box> do { c \<leftarrow> inp_in sig (set [(ClaimSecret A (MNon n) (set [B])). A \<leftarrow> removeAll I AllAgents', 
               n \<leftarrow> removeAll ni AllNonces',  B \<leftarrow> AllAgents']);
-              (if I \<in> (sp c) then Ret (True, knows, (removeAll (MNon (sn c)) sec)) else Ret (True, knows, sec))
+              (if I \<in> (sp c) then Ret (True, knows, (removeAll (sn c) sec)) else Ret (True, knows, sec))
           }
     \<box> do { 
           \<comment> \<open> List.member should only be used for code generation, see comments in its definition \<close>
@@ -204,7 +204,7 @@ definition "PIntruder1 I ni k s = ((PIntruder0 I ni k s) \<parallel>\<^bsub> set
 
 definition "rename_leak = [(leak_C x, leak_C x). x \<leftarrow> AllSecrets]"
 
-definition "rename_sig I ni = [(sig_C (ClaimSecret A n (set [B])), sig_C (ClaimSecret A n (set [B]))). 
+definition "rename_sig I ni = [(sig_C (ClaimSecret A (MNon n) (set [B])), sig_C (ClaimSecret A (MNon n) (set [B]))). 
               A \<leftarrow> removeAll I AllAgents', n \<leftarrow> removeAll ni AllNonces',  B \<leftarrow> AllAgents', 
               A \<noteq> B]"
 

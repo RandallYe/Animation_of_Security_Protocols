@@ -1880,7 +1880,8 @@ value "(BitMMsgs AllBitMs) :: (2,4,4,2,2,1,1) dmsg set"
 
 subsection \<open> Signals and Channels \<close>
 
-datatype ('a::len, 'n::len) dsig = ClaimSecret (sag:"'a dagent") (sn: "'n dnonce") (sp: "\<bbbP> ('a dagent)")
+datatype ('a::len, 'n::len, 'k::len, 's::len, 'g::len, 'bm::len, 'bl::len) dsig =
+    ClaimSecret (sag:"'a dagent") (sn: "('a,'n,'k,'s,'g,'bm,'bl) dmsg") (sp: "\<bbbP> ('a dagent)")
   | StartProt "'a dagent" "'a dagent" "'n dnonce" "'n dnonce"
   | EndProt "'a dagent" "'a dagent" "'n dnonce" "'n dnonce"
 
@@ -1900,7 +1901,8 @@ chantype ('a::len, 'n::len, 'k::len, 's::len, 'g::len, 'bm::len, 'bl::len) chan 
     'k::{len,typerep}, 's::{len,typerep}, 'g::{len,typerep}, 'bm::{len,typerep}, 'bl::{len,typerep}) dmsg"
   leak  :: "('a::{len,typerep}, 'n::{len,typerep}, 'k::{len,typerep}, 's::{len,typerep}, 
     'g::{len,typerep}, 'bm::{len,typerep}, 'bl::{len,typerep}) dmsg"
-  sig   :: "('a::{len,typerep}, 'n::{len,typerep}) dsig"
+  sig   :: "('a::{len,typerep}, 'n::{len,typerep}, 'k::{len,typerep}, 's::{len,typerep}, 
+    'g::{len,typerep}, 'bm::{len,typerep}, 'bl::{len,typerep}) dsig"
   terminate :: "unit"
 
 print_bnfs
