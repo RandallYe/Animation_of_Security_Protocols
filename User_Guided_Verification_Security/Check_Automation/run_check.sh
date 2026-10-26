@@ -9,9 +9,6 @@
 # code generator (`Sec_Animation.thy`):
 #
 #   secrecy     = check_leak                 (no leak event reachable within bound)
-#   secrecy-honest = check_leak over the traces whose environment-chosen peer is
-#                 honest; a leak in a session where the environment chose the
-#                 intruder as peer is not an attack (the intruder is the peer).
 #   auth-alice  = check_auth_violation with matches_start and an end predicate
 #                 "Alice completes" — i.e. EndProt Alice _ must be preceded by
 #                 StartProt _ Alice.  EndProt's FIRST argument is the agent that
@@ -57,6 +54,7 @@ THEORIES="$ARTEFACT/User_Guided_Verification_Security"
 # Reconcile the three before publishing the numbers.
 declare -A BOUNDS=(
   [nspk3]="15 100"
+  [nslpk3]="15 100"
   [nswj3]="15 100"
   [dhwj]="15 100"
   [dh]="15 100"
@@ -66,43 +64,49 @@ declare -A BOUNDS=(
 # the properties are added by the generated Export theories).
 declare -A MODELS=(
   [nspk3]="NSPK3"
+  [nslpk3]="NSLPK3"
   [nswj3]="NSWJ3_active_eve1 NSWJ3_active_eve2 NSWJ3_active_eve3 NSWJ3_active_eve4 NSWJ3_passive_eve1 NSWJ3_passive_eve2 NSWJ3_passive_eve3 NSWJ3_passive_eve4"
   [dhwj]="DHWJ_active_eve1 DHWJ_active_eve2 DHWJ_active_eve3 DHWJ_active_eve4"
   [dh]="DH_Original"
 )
 declare -A SRC_DIR=(
   [nspk3]="NSPKP/NSPK3_v2"
+  [nslpk3]="NSPKP/NSPK3_v2"
   [nswj3]="NSPKP/NSPK3_wbplsec_v3"
   [dhwj]="Diffie_Hellman/DH_wbplsec_v3"
   [dh]="Diffie_Hellman/DH_v2"
 )
 declare -A SRC_FILES=(
-  [nspk3]="NSPK3_config.thy NSPK3.thy NSLPK3.thy"
+  [nspk3]="NSPK3_config.thy NSPK3.thy"
+  [nslpk3]="NSPK3_config.thy NSLPK3.thy"
   [nswj3]="NSWJ3_config.thy NSWJ3_wbplsec.thy"
   [dhwj]="DHWJ_config.thy DHWJ_wbplsec.thy"
   [dh]="DH_config.thy DH.thy"
 )
 declare -A SRC_THEORY=(   # theory imported by the generated theory
   [nspk3]="NSPK3"
+  [nslpk3]="NSLPK3"
   [nswj3]="NSWJ3_wbplsec"
   [dhwj]="DHWJ_wbplsec"
   [dh]="DH"
 )
 declare -A SRC_MODULE=(   # generated module holding the models
   [nspk3]="NSPK3.hs"
+  [nslpk3]="NSLPK3.hs"
   [nswj3]="NSWJ3_wbplsec.hs"
   [dhwj]="DHWJ_wbplsec.hs"
   [dh]="DH.hs"
 )
-FAMILIES=(nspk3 nswj3 dhwj dh)
-PROPERTIES=(secrecy secrecy-honest auth-alice auth-bob)
-CHECK_CONSTS="explore checks check_leak check_leak_msg check_auth_violation matches_start auth_alice auth_bob secrecy secrecy_honest"
+FAMILIES=(nspk3 nslpk3 nswj3 dhwj dh)
+PROPERTIES=(secrecy auth-alice auth-bob)
+CHECK_CONSTS="explore checks check_leak check_leak_msg check_auth_violation matches_start auth_alice auth_bob secrecy"
 
 # A representative subset for --fast: one configuration per family, chosen to
 # exercise both a holds and a violated verdict, so the whole
 # generate -> build -> run pipeline can be smoke-tested quickly.
 declare -A FAST_MODELS=(
   [nspk3]="NSPK3"
+  [nslpk3]="NSLPK3"
   [nswj3]="NSWJ3_active_eve1"
   [dhwj]="DHWJ_active_eve1"
   [dh]="DH_Original"
@@ -177,16 +181,6 @@ definition "auth_alice n mx (P::(chan, unit) itree) \<equiv>
 definition "auth_bob n mx (P::(chan, unit) itree) \<equiv>
   check_auth_violation n mx P matches_start is_end_bob"
 definition "secrecy n mx (P::(chan, unit) itree) \<equiv> check_leak n mx P"
-
-text \<open> Secrecy restricted to sessions whose environment-chosen peer is honest.
-  A leak in a session where the peer is the intruder is by design: the intruder is
-  the intended recipient, so it is entitled to the session key and its payload. \<close>
-
-definition "is_env_honest e \<equiv>
-  (case e of env_C (_, d) \<Rightarrow> is_honest d | _ \<Rightarrow> True)"
-
-definition "secrecy_honest n mx (P::(chan, unit) itree) \<equiv>
-  checks n mx P (\<lambda>tr. (\<exists>e\<in>set tr. is_leak e) \<and> (\<forall>e\<in>set tr. is_env_honest e))"
 
 end
 EOF
@@ -272,7 +266,7 @@ import Control.Exception (evaluate)
 import Data.Time.Clock (getCurrentTime, diffUTCTime)
 import qualified Set
 import Arith (Nat, nat_of_integer)
-import Check (secrecy, secrecy_honest, auth_alice, auth_bob)
+import Check (secrecy, auth_alice, auth_bob)
 import ${SRC_THEORY[$1]}
 -- the qualified type in the cell signature below needs these in scope
 import Interaction_Trees
@@ -289,9 +283,8 @@ cell :: String -> Nat -> Nat -> $sig -> IO (String, Double)
 cell prop nn mm p = do
   t0 <- getCurrentTime
   let res = case prop of
-              "secrecy"        -> secrecy nn mm p
-              "secrecy-honest" -> secrecy_honest nn mm p
-              "auth-alice"     -> auth_alice nn mm p
+              "secrecy"    -> secrecy nn mm p
+              "auth-alice" -> auth_alice nn mm p
               "auth-bob"   -> auth_bob nn mm p
               _            -> error ("unknown property: " ++ prop)
       verdict = if isEmptySet res then "holds" else "violated"
@@ -313,7 +306,7 @@ main = do
         Nothing -> putStrLn ("unknown model: " ++ model) >> exitFailure
         Just (verdict, secs) ->
           putStrLn (model ++ "," ++ prop ++ "," ++ verdict ++ "," ++ show secs)
-    _ -> putStrLn "usage: check <secrecy|secrecy-honest|auth-alice|auth-bob> <model> <n> <mx>"
+    _ -> putStrLn "usage: check <secrecy|auth-alice|auth-bob> <model> <n> <mx>"
          >> exitFailure
 EOF
 
@@ -375,14 +368,13 @@ render_md() {
     echo
     echo "Bounds (visible events / internal steps): ${BOUNDS[*]}"
     echo
-    echo "| Protocol | Model | Secrecy | Secrecy (honest) | Auth (Alice) | Auth (Bob) |"
-    echo "|---|---|---|---|---|---|"
+    echo "| Protocol | Model | Secrecy | Auth (Alice) | Auth (Bob) |"
+    echo "|---|---|---|---|---|"
     awk -F, 'NR>1{k=$1 SUBSEP $2; v[k SUBSEP $3]=$4;
                 if(!(k in seen)){seen[k]=1; ord[++n]=k}}
       END{for(i=1;i<=n;i++){split(ord[i],a,SUBSEP);
-        printf "| %s | %s | %s | %s | %s | %s |\n", a[1], a[2],
+        printf "| %s | %s | %s | %s | %s |\n", a[1], a[2],
           (v[ord[i] SUBSEP "secrecy"]=="holds"?"●":"○"),
-          (v[ord[i] SUBSEP "secrecy-honest"]=="holds"?"●":"○"),
           (v[ord[i] SUBSEP "auth-alice"]=="holds"?"●":"○"),
           (v[ord[i] SUBSEP "auth-bob"]=="holds"?"●":"○")}}' "$CSV"
   } > "$MD"

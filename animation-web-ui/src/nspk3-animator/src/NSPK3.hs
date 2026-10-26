@@ -71,7 +71,8 @@ responder b nb =
         na = Sec_Messages.mn (Sec_Messages.mc1 (Sec_Messages.mem m));
       } in Interaction_Trees.bind_itree
              (ITree_CSP.outp Sec_Messages.sig
-               (Sec_Messages.ClaimSecret b nb (Set.Set [a])))
+               (Sec_Messages.ClaimSecret b (Sec_Messages.MNon nb)
+                 (Set.Set [a])))
              (\ _ ->
                Interaction_Trees.bind_itree
                  (ITree_CSP.outp Sec_Messages.sig
@@ -358,7 +359,8 @@ b_I_sig b nb =
   concatMap
     (\ na ->
       map (\ a ->
-            Sec_Messages.Sig_C (Sec_Messages.ClaimSecret b na (Set.Set [a])))
+            Sec_Messages.Sig_C
+              (Sec_Messages.ClaimSecret b (Sec_Messages.MNon na) (Set.Set [a])))
         (List.removeAll b
           [Sec_Messages.Agent (FSNat.Nmk Arith.zero_nat),
             Sec_Messages.Agent (FSNat.Nmk Arith.one_nat),
@@ -379,7 +381,8 @@ a_I_sig a na =
   concatMap
     (\ nb ->
       map (\ b ->
-            Sec_Messages.Sig_C (Sec_Messages.ClaimSecret a nb (Set.Set [b])))
+            Sec_Messages.Sig_C
+              (Sec_Messages.ClaimSecret a (Sec_Messages.MNon nb) (Set.Set [b])))
         (List.removeAll a
           [Sec_Messages.Agent (FSNat.Nmk Arith.zero_nat),
             Sec_Messages.Agent (FSNat.Nmk Arith.one_nat),
@@ -1182,8 +1185,8 @@ pIntruder0 i ni k s =
                             concatMap
                               (\ n ->
                                 map (\ b ->
-                                      Sec_Messages.ClaimSecret a n
-(Set.Set [b]))
+                                      Sec_Messages.ClaimSecret a
+(Sec_Messages.MNon n) (Set.Set [b]))
                                   [Sec_Messages.Agent
                                      (FSNat.Nmk Arith.zero_nat),
                                     Sec_Messages.Agent
@@ -1204,9 +1207,7 @@ pIntruder0 i ni k s =
                           then Interaction_Trees.Ret
                                  (True,
                                    (knows,
-                                     List.removeAll
-                                       (Sec_Messages.MNon (Sec_Messages.sn c))
-                                       sec))
+                                     List.removeAll (Sec_Messages.sn c) sec))
                           else Interaction_Trees.Ret (True, (knows, sec)))))
                     (let {
                        leaked = filter (List.member knows) sec;
@@ -1299,9 +1300,11 @@ rename_sig i ni =
             (\ b ->
               (if not (Sec_Messages.equal_dagent a b)
                 then [(Sec_Messages.Sig_C
-                         (Sec_Messages.ClaimSecret a n (Set.Set [b])),
+                         (Sec_Messages.ClaimSecret a (Sec_Messages.MNon n)
+                           (Set.Set [b])),
                         Sec_Messages.Sig_C
-                          (Sec_Messages.ClaimSecret a n (Set.Set [b])))]
+                          (Sec_Messages.ClaimSecret a (Sec_Messages.MNon n)
+                            (Set.Set [b])))]
                 else []))
             [Sec_Messages.Agent (FSNat.Nmk Arith.zero_nat),
               Sec_Messages.Agent (FSNat.Nmk Arith.one_nat),
@@ -1739,7 +1742,7 @@ initiator a na =
     (\ (_, b) ->
       Interaction_Trees.bind_itree
         (ITree_CSP.outp Sec_Messages.sig
-          (Sec_Messages.ClaimSecret a na (Set.Set [b])))
+          (Sec_Messages.ClaimSecret a (Sec_Messages.MNon na) (Set.Set [b])))
         (\ _ ->
           Interaction_Trees.bind_itree
             (ITree_CSP.outp Sec_Messages.send

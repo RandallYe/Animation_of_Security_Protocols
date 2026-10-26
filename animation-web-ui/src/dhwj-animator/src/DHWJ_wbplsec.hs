@@ -6,8 +6,8 @@ module
                 b_rcv_msgs, bob_jamming_events, jamming, pBob_jamming,
                 msg4_agent_send, wm_msg4_agent_send, responder, pBob,
                 all_wm_msg4_agent_recv, a_rcv_msgs, alice_jamming_events,
-                msg3_agent_send, wm_msg3_agent_send, initiator, pAlice, sublist,
-                all_msg12_agent_recv, all_wm_msg4_agent_send,
+                msg3_agent_send, wm_msg3_agent_send, initiator, pAlice, a_I_sig,
+                sublist, all_msg12_agent_recv, all_wm_msg4_agent_send,
                 all_wm_msg3_agent_send, all_wm_msg123_agent_send, all_msgs,
                 pLeakOnlyOnce, all_jm_wm_msg123_agent_send,
                 intruder_jamming_events, relay_or_skip, jamming_intruder,
@@ -30,11 +30,11 @@ import qualified Data.Bits;
 import qualified Rational;
 import qualified Typerep;
 import qualified HOL;
-import qualified List;
 import qualified Product_Type;
 import qualified ITree_Iteration;
-import qualified DHWJ_config;
 import qualified Prisms;
+import qualified DHWJ_config;
+import qualified List;
 import qualified CSP_operators;
 import qualified ITree_CSP;
 import qualified Interaction_Trees;
@@ -669,33 +669,38 @@ initiator a na =
                          (Sec_Messages.mn (Sec_Messages.mmek gy))))
                      (\ _ ->
                        Interaction_Trees.bind_itree
-                         (ITree_CSP.outp Sec_Messages.send
-                           (a, (Sec_Messages.Intruder,
-                                 (b, wm_msg3_agent_send a na gy))))
+                         (ITree_CSP.outp Sec_Messages.sig
+                           (Sec_Messages.ClaimSecret a
+                             (Sec_Messages.MK (DHWJ_config.pks a))
+                             (Set.Set [b])))
                          (\ _ ->
                            Interaction_Trees.bind_itree
-                             (ITree_CSP.inp_list_where Sec_Messages.cjam
-                               (map (\ m4 ->
-                                      Sec_Messages.MJam m4
-(DHWJ_config.mkbma a))
-                                 (all_wm_msg4_agent_recv a))
-                               (\ _ -> True))
-                             (\ m4 ->
-                               let {
-                                 m4a = Sec_Messages.mwm (Sec_Messages.mjm m4);
-                                 m4m = Sec_Messages.msem m4a;
-                               } in (if Sec_Messages.equal_dmsg
-  (Sec_Messages.swap_mod_exp (Sec_Messages.msek m4a))
-  (Sec_Messages.MModExp gy (Sec_Messages.MNon na))
-                                      then (if Sec_Messages.equal_dmsg m4m
-         (Sec_Messages.MK (DHWJ_config.pks a))
-     then Interaction_Trees.bind_itree
-            (ITree_CSP.outp Sec_Messages.sig
-              (Sec_Messages.EndProt a b na
-                (Sec_Messages.mn (Sec_Messages.mmek gy))))
-            (\ _ -> ITree_CSP.outp Sec_Messages.terminate ())
-     else Interaction_Trees.Ret ())
-                                      else Interaction_Trees.Ret ())))))));
+                             (ITree_CSP.outp Sec_Messages.send
+                               (a, (Sec_Messages.Intruder,
+                                     (b, wm_msg3_agent_send a na gy))))
+                             (\ _ ->
+                               Interaction_Trees.bind_itree
+                                 (ITree_CSP.inp_list_where Sec_Messages.cjam
+                                   (map (\ m4 ->
+  Sec_Messages.MJam m4 (DHWJ_config.mkbma a))
+                                     (all_wm_msg4_agent_recv a))
+                                   (\ _ -> True))
+                                 (\ m4 ->
+                                   let {
+                                     m4a = Sec_Messages.mwm
+     (Sec_Messages.mjm m4);
+                                     m4m = Sec_Messages.msem m4a;
+                                   } in (if Sec_Messages.equal_dmsg
+      (Sec_Messages.swap_mod_exp (Sec_Messages.msek m4a))
+      (Sec_Messages.MModExp gy (Sec_Messages.MNon na))
+  then (if Sec_Messages.equal_dmsg m4m (Sec_Messages.MK (DHWJ_config.pks a))
+         then Interaction_Trees.bind_itree
+                (ITree_CSP.outp Sec_Messages.sig
+                  (Sec_Messages.EndProt a b na
+                    (Sec_Messages.mn (Sec_Messages.mmek gy))))
+                (\ _ -> ITree_CSP.outp Sec_Messages.terminate ())
+         else Interaction_Trees.Ret ())
+  else Interaction_Trees.Ret ()))))))));
 
 pAlice ::
   Interaction_Trees.Itree
@@ -836,6 +841,23 @@ pAlice =
           (a_rcv_msgs (Sec_Messages.Agent (FSNat.Nmk Arith.zero_nat))))
         True))
     (Set.Set [Sec_Messages.Terminate_C ()]) ITree_CSP.skip;
+
+a_I_sig ::
+  Sec_Messages.Dagent (Numeral_Type.Bit0 Numeral_Type.Num1) ->
+    [Sec_Messages.Chan (Numeral_Type.Bit0 Numeral_Type.Num1)
+       (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
+       (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
+       (Numeral_Type.Bit0 (Numeral_Type.Bit0 Numeral_Type.Num1))
+       Numeral_Type.Num1 (Numeral_Type.Bit1 Numeral_Type.Num1)
+       (Numeral_Type.Bit0 Numeral_Type.Num1)];
+a_I_sig a =
+  map (\ b ->
+        Sec_Messages.Sig_C
+          (Sec_Messages.ClaimSecret a (Sec_Messages.MK (DHWJ_config.pks a))
+            (Set.Set [b])))
+    (List.removeAll a
+      [Sec_Messages.Agent (FSNat.Nmk Arith.zero_nat),
+        Sec_Messages.Agent (FSNat.Nmk Arith.one_nat), Sec_Messages.Intruder]);
 
 sublist :: forall a. (Eq a) => [a] -> [a] -> [a];
 sublist xs ys = filter (List.member ys) xs;
@@ -1246,18 +1268,46 @@ pIntruder0 i ni k s eve =
                   (\ _ -> Interaction_Trees.Ret (True, (knows, sec))))
                 (ITree_CSP.extchoice_itree
                   (Interaction_Trees.bind_itree
-                    (ITree_CSP.outp Sec_Messages.terminate ())
-                    (\ _ -> Interaction_Trees.Ret (False, (knows, sec))))
-                  (let {
-                     leaked = CSP_operators.list_inter knows sec;
-                   } in Interaction_Trees.bind_itree
-                          (ITree_CSP.guard (not (null leaked)))
-                          (\ _ ->
-                            Interaction_Trees.bind_itree
-                              (ITree_CSP.inp_list_where Sec_Messages.leak leaked
-                                (\ _ -> True))
-                              (\ _ ->
-                                Interaction_Trees.Ret (True, (knows, sec))))))))
+                    (ITree_CSP.inp_list_where Sec_Messages.sig
+                      (concatMap
+                        (\ b ->
+                          (if not (Sec_Messages.equal_dagent b
+                                    (Sec_Messages.Agent
+                                      (FSNat.Nmk Arith.zero_nat)))
+                            then [Sec_Messages.ClaimSecret
+                                    (Sec_Messages.Agent
+                                      (FSNat.Nmk Arith.zero_nat))
+                                    (Sec_Messages.MK
+                                      (DHWJ_config.pks
+(Sec_Messages.Agent (FSNat.Nmk Arith.zero_nat))))
+                                    (Set.Set [b])]
+                            else []))
+                        [Sec_Messages.Agent (FSNat.Nmk Arith.zero_nat),
+                          Sec_Messages.Agent (FSNat.Nmk Arith.one_nat),
+                          Sec_Messages.Intruder])
+                      (\ _ -> True))
+                    (\ c ->
+                      (if Set.member i (Sec_Messages.sp c)
+                        then Interaction_Trees.Ret
+                               (True,
+                                 (knows,
+                                   List.removeAll (Sec_Messages.sn c) sec))
+                        else Interaction_Trees.Ret (True, (knows, sec)))))
+                  (ITree_CSP.extchoice_itree
+                    (Interaction_Trees.bind_itree
+                      (ITree_CSP.outp Sec_Messages.terminate ())
+                      (\ _ -> Interaction_Trees.Ret (False, (knows, sec))))
+                    (let {
+                       leaked = CSP_operators.list_inter knows sec;
+                     } in Interaction_Trees.bind_itree
+                            (ITree_CSP.guard (not (null leaked)))
+                            (\ _ ->
+                              Interaction_Trees.bind_itree
+                                (ITree_CSP.inp_list_where Sec_Messages.leak
+                                  leaked (\ _ -> True))
+                                (\ _ ->
+                                  Interaction_Trees.Ret
+                                    (True, (knows, sec)))))))))
           ret)
         (\ _ -> Interaction_Trees.Ret ()));
 
@@ -1742,7 +1792,8 @@ events_A_B_I =
                   Sec_Messages.Intruder
                   (FSNat.Nmk (Arith.nat_of_integer (2 :: Integer))))
                 (Sec_Messages.Agent (FSNat.Nmk Arith.one_nat))) ++
-              terminate_event ++ evt_msgs_snd ++ evt_msgs_recv));
+              a_I_sig (Sec_Messages.Agent (FSNat.Nmk Arith.zero_nat)) ++
+                terminate_event ++ evt_msgs_snd ++ evt_msgs_recv));
 
 dHWJ_active ::
   DHWJ_config.Deve ->
