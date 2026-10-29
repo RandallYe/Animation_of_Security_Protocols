@@ -24,8 +24,13 @@
 #   ./run_check.sh dry-run     show the grid and bounds, run nothing
 #
 # Outputs (written next to the script unless overridden):
-#   check-results.csv     protocol,model,property,verdict,seconds
+#   check-results.csv     protocol,model,property,verdict,seconds,exhausted,mx
 #   check-results.md      the same rendered as a Markdown table
+#
+# Every cell also evaluates the executable budget_hit predicate.  A cell whose
+# search exhausts the internal-step budget is retried with a larger mx; if it
+# still exhausts, the verdict is recorded as "unknown" and the cell is not a
+# tick/cross.  The exhausted column says which cells were qualified this way.
 #   check-work/logs/*.log per-stage and per-cell logs
 #
 # Requirements: Isabelle/HOL 2025 (CyPhyAssure session chain), stack + GHC
@@ -99,7 +104,7 @@ declare -A SRC_MODULE=(   # generated module holding the models
 )
 FAMILIES=(nspk3 nslpk3 nswj3 dhwj dh)
 PROPERTIES=(secrecy auth-alice auth-bob)
-CHECK_CONSTS="explore checks check_leak check_leak_msg check_auth_violation matches_start auth_alice auth_bob secrecy"
+CHECK_CONSTS="explore checks check_leak check_leak_msg check_auth_violation matches_start auth_alice auth_bob secrecy exhausted budget_hit"
 
 # A representative subset for --fast: one configuration per family, chosen to
 # exercise both a holds and a violated verdict, so the whole
@@ -116,13 +121,16 @@ declare -A FAST_MODELS=(
 MODE=all
 FAST=0
 TIMEOUT_SET=0
+FAMILY_FILTER=()
 CELL_TIMEOUT=${CELL_TIMEOUT:-900}   # seconds per cell; 0 disables the timeout
+BUDGET_RETRIES=${BUDGET_RETRIES:-2}  # extra attempts after an exhausted cell
+BUDGET_FACTOR=${BUDGET_FACTOR:-2}    # mx multiplier between attempts
 GHC_OPT=-O2
 
 # --------------------------------------------------------------------------
 usage() {
   cat >&2 <<USAGE
-usage: $0 [--fast] [--timeout SECONDS] [generate|build|run|all|dry-run]
+usage: $0 [--family NAME[,NAME...]] [--fast] [--timeout SECONDS] [generate|build|run|all|dry-run]
 
   generate           Isabelle -> Haskell, one package per family
   build              stack build each generated runner
@@ -132,6 +140,11 @@ usage: $0 [--fast] [--timeout SECONDS] [generate|build|run|all|dry-run]
 
   --fast             representative subset (one configuration per family,
                      covering a holds and a violated verdict) and -O1
+  --family NAMES     restrict every stage to these families (comma-separated;
+                     repeatable), e.g. --family dhwj or --family nspk3,nslpk3
+  --budget-retries N extra attempts after a cell exhausts its internal-step
+                     budget (default 2)
+  --budget-factor N  multiply mx between attempts (default 2)
   --timeout SECONDS  per-cell wall-clock limit (default 900; 0 disables)
 USAGE
 }
@@ -181,6 +194,12 @@ definition "auth_alice n mx (P::(chan, unit) itree) \<equiv>
 definition "auth_bob n mx (P::(chan, unit) itree) \<equiv>
   check_auth_violation n mx P matches_start is_end_bob"
 definition "secrecy n mx (P::(chan, unit) itree) \<equiv> check_leak n mx P"
+
+\<comment> \<open> True when the search would exhaust the internal-step budget.  This is the
+  executable counterpart of the hypothesis of @{text explore_complete_no_hit}:
+  a cell whose verdict is recorded together with @{text "exhausted = False"} is
+  complete within the visible-event bound. \<close>
+definition "exhausted n mx (P::(chan, unit) itree) \<equiv> budget_hit n mx 0 P"
 
 end
 EOF
@@ -266,7 +285,7 @@ import Control.Exception (evaluate)
 import Data.Time.Clock (getCurrentTime, diffUTCTime)
 import qualified Set
 import Arith (Nat, nat_of_integer)
-import Check (secrecy, auth_alice, auth_bob)
+import Check (secrecy, auth_alice, auth_bob, exhausted)
 import ${SRC_THEORY[$1]}
 -- the qualified type in the cell signature below needs these in scope
 import Interaction_Trees
@@ -278,8 +297,9 @@ isEmptySet :: Set.Set a -> Bool
 isEmptySet (Set.Set xs)  = null xs
 isEmptySet (Set.Coset _) = False
 
--- | Run one proved check on one model and return its verdict and elapsed time.
-cell :: String -> Nat -> Nat -> $sig -> IO (String, Double)
+-- | Run one proved check on one model and return its verdict, elapsed time and
+-- whether the search exhausted the internal-step budget.
+cell :: String -> Nat -> Nat -> $sig -> IO (String, Double, Bool)
 cell prop nn mm p = do
   t0 <- getCurrentTime
   let res = case prop of
@@ -289,10 +309,11 @@ cell prop nn mm p = do
               _            -> error ("unknown property: " ++ prop)
       verdict = if isEmptySet res then "holds" else "violated"
   _ <- evaluate verdict        -- force the search before stopping the clock
+  ex <- evaluate (exhausted nn mm p)
   t1 <- getCurrentTime
-  return (verdict, realToFrac (diffUTCTime t1 t0))
+  return (verdict, realToFrac (diffUTCTime t1 t0), ex)
 
-dispatch :: String -> String -> Nat -> Nat -> IO (Maybe (String, Double))
+dispatch :: String -> String -> Nat -> Nat -> IO (Maybe (String, Double, Bool))
 dispatch prop model nn mm = case model of
 $clauses    _ -> return Nothing
 
@@ -304,8 +325,9 @@ main = do
       r <- dispatch prop model (nat_of_integer (read n)) (nat_of_integer (read mx))
       case r of
         Nothing -> putStrLn ("unknown model: " ++ model) >> exitFailure
-        Just (verdict, secs) ->
-          putStrLn (model ++ "," ++ prop ++ "," ++ verdict ++ "," ++ show secs)
+        Just (verdict, secs, ex) ->
+          putStrLn (model ++ "," ++ prop ++ "," ++ verdict ++ "," ++ show secs
+                    ++ "," ++ (if ex then "true" else "false"))
     _ -> putStrLn "usage: check <secrecy|auth-alice|auth-bob> <model> <n> <mx>"
          >> exitFailure
 EOF
@@ -343,46 +365,82 @@ EOF
 run_cell() {
   local fam="$1" model="$2" prop="$3" n="$4" mx="$5"
   local bin="$WORK/build/$fam/check" log="$WORK/logs/cell-$fam-$model-$prop.log"
-  local t0 t1 secs verdict rc
-  t0=$(date +%s.%N)
-  if [ "$CELL_TIMEOUT" -gt 0 ]; then
-    timeout "$CELL_TIMEOUT" "$bin" "$prop" "$model" "$n" "$mx" > "$log" 2>&1
-  else
-    "$bin" "$prop" "$model" "$n" "$mx" > "$log" 2>&1
-  fi
-  rc=$?
-  t1=$(date +%s.%N)
-  case "$rc" in
-    0)   verdict=$(tail -n1 "$log" | cut -d, -f3) ;;
-    124) verdict="timeout" ;;
-    *)   verdict="error" ;;
-  esac
-  secs=$(awk -v a="$t0" -v b="$t1" 'BEGIN{printf "%.2f", b-a}')
-  printf '%s,%s,%s,%s,%s\n' "$fam" "$model" "$prop" "$verdict" "$secs" >> "$CSV"
-  printf '  %-30s %-11s %-9s %6ss\n' "$model" "$prop" "$verdict" "$secs" >&2
+  local attempt verdict exhausted secs total=0 t0 t1 rc line _m _p _s
+  : > "$log"
+  for ((attempt = 1; attempt <= BUDGET_RETRIES + 1; attempt++)); do
+    t0=$(date +%s.%N)
+    if [ "$CELL_TIMEOUT" -gt 0 ]; then
+      timeout "$CELL_TIMEOUT" "$bin" "$prop" "$model" "$n" "$mx" > "$log.tmp" 2>&1
+    else
+      "$bin" "$prop" "$model" "$n" "$mx" > "$log.tmp" 2>&1
+    fi
+    rc=$?
+    t1=$(date +%s.%N)
+    secs=$(awk -v a="$t0" -v b="$t1" 'BEGIN{printf "%.2f", b-a}')
+    total=$(awk -v a="$total" -v b="$secs" 'BEGIN{printf "%.2f", a+b}')
+    cat "$log.tmp" >> "$log"; rm -f "$log.tmp"
+    case "$rc" in
+      0)   line=$(tail -n1 "$log")
+           IFS=',' read -r _m _p verdict _s exhausted <<< "$line"
+           [ -n "${verdict:-}" ] || verdict="error"
+           [ -n "${exhausted:-}" ] || exhausted="n/a" ;;
+      124) verdict="timeout"; exhausted="n/a" ;;
+      *)   verdict="error"; exhausted="n/a" ;;
+    esac
+    if [ "$exhausted" = "true" ] && [ "$attempt" -lt $((BUDGET_RETRIES + 1)) ]; then
+      printf '\n[budget] attempt %d hit the internal-step budget with mx=%d; retrying with mx=%d\n' \
+        "$attempt" "$mx" "$((mx * BUDGET_FACTOR))" >> "$log"
+      echo "  $model $prop: budget hit at mx=$mx, retrying at mx=$((mx * BUDGET_FACTOR))" >&2
+      mx=$((mx * BUDGET_FACTOR))
+      continue
+    fi
+    break
+  done
+  if [ "$exhausted" = "true" ]; then verdict="unknown"; fi
+  printf '%s,%s,%s,%s,%s,%s,%s\n' "$fam" "$model" "$prop" "$verdict" "$total" "$exhausted" "$mx" >> "$CSV"
+  printf '  %-30s %-11s %-9s %6ss  budget=%s\n' "$model" "$prop" "$verdict" "$total" "$exhausted" >&2
 }
 
 render_md() {
   {
     echo "# Check — reproduced $(date -u '+%Y-%m-%d %H:%M UTC')"
     echo
-    echo "Bounds (visible events / internal steps): ${BOUNDS[*]}"
+    printf 'Bounds (visible events / internal steps):'
+    for f in "${FAMILIES[@]}"; do printf ' %s [%s]' "$f" "${BOUNDS[$f]}"; done
+    printf '; budget retries: %s x%s\n' "${BUDGET_RETRIES}" "${BUDGET_FACTOR}"
     echo
-    echo "| Protocol | Model | Secrecy | Auth (Alice) | Auth (Bob) |"
-    echo "|---|---|---|---|---|"
-    awk -F, 'NR>1{k=$1 SUBSEP $2; v[k SUBSEP $3]=$4;
-                if(!(k in seen)){seen[k]=1; ord[++n]=k}}
-      END{for(i=1;i<=n;i++){split(ord[i],a,SUBSEP);
-        printf "| %s | %s | %s | %s | %s |\n", a[1], a[2],
-          (v[ord[i] SUBSEP "secrecy"]=="holds"?"●":"○"),
-          (v[ord[i] SUBSEP "auth-alice"]=="holds"?"●":"○"),
-          (v[ord[i] SUBSEP "auth-bob"]=="holds"?"●":"○")}}' "$CSV"
+    echo "| Protocol | Model | Secrecy | Auth (Alice) | Auth (Bob) | Budget |"
+    echo "|---|---|---|---|---|---|"
+    awk -F, '
+      function sym(v) {
+        if (v == "holds") return "●";
+        if (v == "violated") return "○";
+        return "?";
+      }
+      NR > 1 {
+        k = $1 SUBSEP $2;
+        v[k SUBSEP $3] = $4;
+        if ($6 == "true") hit[k] = 1;
+        if (!(k in seen)) { seen[k] = 1; ord[++n] = k }
+      }
+      END {
+        for (i = 1; i <= n; i++) {
+          split(ord[i], a, SUBSEP);
+          printf "| %s | %s | %s | %s | %s | %s |\n", a[1], a[2],
+            sym(v[ord[i] SUBSEP "secrecy"]),
+            sym(v[ord[i] SUBSEP "auth-alice"]),
+            sym(v[ord[i] SUBSEP "auth-bob"]),
+            (hit[ord[i]] ? "hit" : "ok")
+        }
+      }' "$CSV"
+    echo
+    echo 'A `?` marks a cell whose search exhausted the internal-step budget (or did not finish); it is not a verdict. `Budget` is `ok` only when no property of that model exhausted its budget.'
   } > "$MD"
   log "wrote $CSV and $MD"
 }
 
 run_all() {
-  : > "$CSV"; echo "protocol,model,property,verdict,seconds" >> "$CSV"
+  : > "$CSV"; echo "protocol,model,property,verdict,seconds,exhausted,mx" >> "$CSV"
   local fam isa hs prop n mx list
   for fam in "${FAMILIES[@]}"; do
     read -r n mx <<< "${BOUNDS[$fam]}"
@@ -404,6 +462,12 @@ run_all() {
 while [ $# -gt 0 ]; do
   case "$1" in
     --fast)      FAST=1 ;;
+    --family)    shift; IFS=',' read -r -a _fams <<< "${1:?--family needs a value}"; FAMILY_FILTER+=("${_fams[@]}") ;;
+    --family=*)  IFS=',' read -r -a _fams <<< "${1#*=}"; FAMILY_FILTER+=("${_fams[@]}") ;;
+    --budget-retries) shift; BUDGET_RETRIES="${1:?--budget-retries needs a value}" ;;
+    --budget-retries=*) BUDGET_RETRIES="${1#*=}" ;;
+    --budget-factor) shift; BUDGET_FACTOR="${1:?--budget-factor needs a value}" ;;
+    --budget-factor=*) BUDGET_FACTOR="${1#*=}" ;;
     --timeout)   shift; TIMEOUT_SET=1; CELL_TIMEOUT="${1:?--timeout needs a value}" ;;
     --timeout=*) TIMEOUT_SET=1; CELL_TIMEOUT="${1#*=}" ;;
     generate|build|run|all|dry-run) MODE="$1" ;;
@@ -416,6 +480,20 @@ done
 if [ "$FAST" = 1 ]; then
   [ "$TIMEOUT_SET" = 1 ] || CELL_TIMEOUT=180
   GHC_OPT=-O1
+fi
+
+[[ "$BUDGET_RETRIES" =~ ^[0-9]+$ ]] || die "--budget-retries must be a non-negative integer"
+[[ "$BUDGET_FACTOR" =~ ^[0-9]+$ ]] && [ "$BUDGET_FACTOR" -ge 1 ] \
+  || die "--budget-factor must be a positive integer"
+
+if [ ${#FAMILY_FILTER[@]} -gt 0 ]; then
+  for f in "${FAMILY_FILTER[@]}"; do
+    case " ${FAMILIES[*]} " in
+      *" $f "*) ;;
+      *) die "unknown family '$f' (choose from: ${FAMILIES[*]})" ;;
+    esac
+  done
+  FAMILIES=("${FAMILY_FILTER[@]}")
 fi
 
 mkdir -p "$WORK/logs" "$WORK/regen" "$WORK/build"
@@ -437,5 +515,5 @@ case "$MODE" in
               for m in $list; do echo "  $k $(hs_name "$m")"; done
             done ;;
   help)     usage ;;
-  *)        die "usage: $0 [--fast] [--timeout SECONDS] [generate|build|run|all|dry-run]" ;;
+  *)        die "usage: $0 [--family NAME[,NAME...]] [--fast] [--timeout SECONDS] [generate|build|run|all|dry-run]" ;;
 esac
