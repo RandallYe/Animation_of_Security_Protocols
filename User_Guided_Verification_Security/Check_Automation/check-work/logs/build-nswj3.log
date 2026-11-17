@@ -1,0 +1,51 @@
+check-nswj3> configure (exe)
+Configuring check-nswj3-0.1.0...
+check-nswj3> build (exe) with ghc-9.8.4
+Preprocessing executable 'check' for check-nswj3-0.1.0..
+Building executable 'check' for check-nswj3-0.1.0..
+[ 1 of 32] Compiling Paths_check_nswj3
+[ 2 of 32] Compiling Rational
+[ 3 of 32] Compiling Product_Type
+[ 4 of 32] Compiling Prisms
+[ 5 of 32] Compiling Orderings
+[ 6 of 32] Compiling Option
+[ 7 of 32] Compiling Map
+[ 8 of 32] Compiling HOL
+[ 9 of 32] Compiling Countable
+[10 of 32] Compiling Channel_Type
+[11 of 32] Compiling Arith
+[12 of 32] Compiling List
+[13 of 32] Compiling Set
+[14 of 32] Compiling Finite_Set
+[15 of 32] Compiling Complete_Lattices
+[16 of 32] Compiling AList
+[17 of 32] Compiling Interaction_Trees
+[18 of 32] Compiling ITree_Parallel
+[19 of 32] Compiling ITree_Iteration
+[20 of 32] Compiling ITree_Choice
+[21 of 32] Compiling ITree_CSP
+[22 of 32] Compiling CSP_operators
+[23 of 32] Compiling Typerep
+[24 of 32] Compiling Numeral_Type
+[25 of 32] Compiling Type_Length
+[26 of 32] Compiling FSNat
+[27 of 32] Compiling Sec_Messages
+[28 of 32] Compiling Sec_Animation
+[29 of 32] Compiling NSWJ3_config
+[30 of 32] Compiling NSWJ3_wbplsec
+[31 of 32] Compiling Check
+[32 of 32] Compiling Main
+[33 of 33] Linking /home/rye/workspace/Animation_of_Security_Protocols/User_Guided_Verification_Security/Check_Automation/check-work/build/nswj3/.stack-work/dist/x86_64-linux/ghc-9.8.4/build/check/check
+check-nswj3> copy/register
+Installing executable check in /home/rye/workspace/Animation_of_Security_Protocols/User_Guided_Verification_Security/Check_Automation/check-work/build/nswj3/.stack-work/install/x86_64-linux/22885eb1d0c87594ddbe39029534b78691a2e4508f90c86d0b843091495385bb/9.8.4/bin
+Copying from
+/home/rye/workspace/Animation_of_Security_Protocols/User_Guided_Verification_Security/Check_Automation/check-work/build/nswj3/.stack-work/install/x86_64-linux/22885eb1d0c87594ddbe39029534b78691a2e4508f90c86d0b843091495385bb/9.8.4/bin/check
+to
+/home/rye/workspace/Animation_of_Security_Protocols/User_Guided_Verification_Security/Check_Automation/check-work/build/nswj3/check.
+Copied executables to
+/home/rye/workspace/Animation_of_Security_Protocols/User_Guided_Verification_Security/Check_Automation/check-work/build/nswj3/:
+* check
+
+Warning: Installation path
+         /home/rye/workspace/Animation_of_Security_Protocols/User_Guided_Verification_Security/Check_Automation/check-work/build/nswj3
+         not found on the PATH environment variable.

@@ -1,0 +1,53 @@
+check-nspk3> configure (exe)
+Configuring check-nspk3-0.1.0...
+check-nspk3> build (exe) with ghc-9.8.4
+Preprocessing executable 'check' for check-nspk3-0.1.0..
+Building executable 'check' for check-nspk3-0.1.0..
+[ 1 of 34] Compiling Paths_check_nspk3
+[ 2 of 34] Compiling Rational
+[ 3 of 34] Compiling Product_Type
+[ 4 of 34] Compiling Prisms
+[ 5 of 34] Compiling Orderings
+[ 6 of 34] Compiling Option
+[ 7 of 34] Compiling Map
+[ 8 of 34] Compiling HOL
+[ 9 of 34] Compiling Countable
+[10 of 34] Compiling Finite_Set
+[11 of 34] Compiling Channel_Type
+[12 of 34] Compiling Arith
+[13 of 34] Compiling List
+[14 of 34] Compiling Set
+[15 of 34] Compiling Relation
+[16 of 34] Compiling Complete_Lattices
+[17 of 34] Compiling AList
+[18 of 34] Compiling Relation_Extra
+[19 of 34] Compiling Interaction_Trees
+[20 of 34] Compiling ITree_Parallel
+[21 of 34] Compiling ITree_Iteration
+[22 of 34] Compiling ITree_Choice
+[23 of 34] Compiling ITree_CSP
+[24 of 34] Compiling CSP_operators
+[25 of 34] Compiling Typerep
+[26 of 34] Compiling Numeral_Type
+[27 of 34] Compiling Type_Length
+[28 of 34] Compiling FSNat
+[29 of 34] Compiling Sec_Messages
+[30 of 34] Compiling Sec_Animation
+[31 of 34] Compiling NSPK3_config
+[32 of 34] Compiling NSPK3
+[33 of 34] Compiling Check
+[34 of 34] Compiling Main
+[35 of 35] Linking /home/rye/workspace/Animation_of_Security_Protocols/User_Guided_Verification_Security/Check_Automation/check-work/build/nspk3/.stack-work/dist/x86_64-linux/ghc-9.8.4/build/check/check
+check-nspk3> copy/register
+Installing executable check in /home/rye/workspace/Animation_of_Security_Protocols/User_Guided_Verification_Security/Check_Automation/check-work/build/nspk3/.stack-work/install/x86_64-linux/22885eb1d0c87594ddbe39029534b78691a2e4508f90c86d0b843091495385bb/9.8.4/bin
+Copying from
+/home/rye/workspace/Animation_of_Security_Protocols/User_Guided_Verification_Security/Check_Automation/check-work/build/nspk3/.stack-work/install/x86_64-linux/22885eb1d0c87594ddbe39029534b78691a2e4508f90c86d0b843091495385bb/9.8.4/bin/check
+to
+/home/rye/workspace/Animation_of_Security_Protocols/User_Guided_Verification_Security/Check_Automation/check-work/build/nspk3/check.
+Copied executables to
+/home/rye/workspace/Animation_of_Security_Protocols/User_Guided_Verification_Security/Check_Automation/check-work/build/nspk3/:
+* check
+
+Warning: Installation path
+         /home/rye/workspace/Animation_of_Security_Protocols/User_Guided_Verification_Security/Check_Automation/check-work/build/nspk3
+         not found on the PATH environment variable.
